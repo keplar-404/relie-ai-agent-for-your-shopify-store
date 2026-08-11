@@ -1,6 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { ChatPreviewPanel } from "@/features/chat/components/chat-preview-panel";
 
 const ChatContent = dynamic(
   () => import("@/features/chat").then((mod) => mod.ChatContent),
@@ -19,6 +25,24 @@ function ChatLoading() {
 }
 
 export default function ChatPage() {
-  return <ChatContent />;
-}
+  return (
+    <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
+      {/* Left Panel: Chat Interface */}
+      <ResizablePanel
+        defaultSize={"20%"}
+        minSize={"20%"}
+        maxSize={"60%"}
+        className="flex flex-col h-full bg-background border-r border-border"
+      >
+        <ChatContent />
+      </ResizablePanel>
 
+      <ResizableHandle withHandle className="after:w-4" />
+
+      {/* Right Panel: Web Preview & Code View */}
+      <ResizablePanel className="hidden md:flex flex-col h-full bg-background">
+        <ChatPreviewPanel />
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  );
+}

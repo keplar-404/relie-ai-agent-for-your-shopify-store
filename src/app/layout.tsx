@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, Alexandria } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Agentation } from "agentation";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={cn(
         "h-full",
         "antialiased",
@@ -44,8 +46,18 @@ export default function RootLayout({ children }: RootLayoutProps) {
         alexandria.variable,
       )}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+      </body>
       {process.env.NODE_ENV === "development" && <Agentation />}
     </html>
   );
 }
+

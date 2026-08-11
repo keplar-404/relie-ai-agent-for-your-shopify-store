@@ -1,18 +1,7 @@
 "use client";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
-import {
-  PromptInput,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-} from "@/components/ai-elements/prompt-input";
+import { ChatInputWidget } from "@/components/widgets/chat-input";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
@@ -48,30 +37,16 @@ export default function Home() {
         </p>
       </div>
 
-      <PromptInput
+      <ChatInputWidget
         onSubmit={handleSubmit}
+        status={status}
+        placeholder="Ask anything about your store..."
         className="w-full max-w-[750px] bg-card border border-border rounded-xl shadow-xs p-3 flex flex-col gap-2 transition-all focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20"
-        globalDrop
-        multiple
-      >
-        <PromptInputBody className="w-full">
-          <PromptInputTextarea
-            placeholder="Ask anything about your store..."
-            className="w-full min-h-[60px] max-h-[180px] bg-transparent border-0 outline-none focus:ring-0 resize-none font-sans text-sm text-foreground placeholder:text-muted-foreground"
-          />
-        </PromptInputBody>
-        <PromptInputFooter className="flex items-center justify-between border-t border-border/50 pt-2">
-          <PromptInputTools>
-            <PromptInputActionMenu>
-              <PromptInputActionMenuTrigger />
-              <PromptInputActionMenuContent>
-                <PromptInputActionAddAttachments />
-              </PromptInputActionMenuContent>
-            </PromptInputActionMenu>
-          </PromptInputTools>
-          <PromptInputSubmit status={status} />
-        </PromptInputFooter>
-      </PromptInput>
+        bodyClassName="w-full"
+        textareaClassName="w-full min-h-[60px] max-h-[180px] bg-transparent border-0 outline-none focus:ring-0 resize-none font-sans text-sm text-foreground placeholder:text-muted-foreground"
+        footerClassName="flex items-center justify-between border-t border-border/50 pt-2"
+        showAttachments={true}
+      />
     </div>
   );
 }

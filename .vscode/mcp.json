@@ -2,17 +2,29 @@
   "servers": {
     "shadcn": {
       "command": "npx",
-      "args": ["shadcn@latest", "mcp"],
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ],
       "type": "stdio"
     },
     "next-devtools": {
       "command": "npx",
-      "args": ["-y", "next-devtools-mcp@latest"],
+      "args": [
+        "-y",
+        "next-devtools-mcp@latest"
+      ],
       "type": "stdio"
     },
     "figma": {
       "url": "https://mcp.figma.com/mcp",
       "type": "http"
+    },
+    "docs-langchain": {
+      "url": "https://docs.langchain.com/mcp"
+    },
+    "reference-langchain": {
+      "url": "https://reference.langchain.com/mcp"
     }
   },
   "inputs": []

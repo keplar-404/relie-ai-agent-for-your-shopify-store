@@ -1,20 +1,7 @@
 "use client";
 
-import {
-  PromptInput,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputHeader,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-  type PromptInputMessage,
-} from "@/components/ai-elements/prompt-input";
-import { PromptInputAttachmentsDisplay } from "./prompt-attachments-display";
+import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { ChatInputWidget } from "@/components/widgets/chat-input";
 import type { ChatStatus } from "../types";
 
 interface ChatInputProps {
@@ -25,33 +12,12 @@ interface ChatInputProps {
 export function ChatInput({ status, onSubmit }: ChatInputProps) {
   return (
     <footer className="p-4 border-t border-border bg-background">
-      <PromptInput
+      <ChatInputWidget
+        status={status}
         onSubmit={onSubmit}
-        className="w-full"
-        globalDrop
-        multiple
-      >
-        <PromptInputHeader>
-          <PromptInputAttachmentsDisplay />
-        </PromptInputHeader>
-        <PromptInputBody>
-          <PromptInputTextarea
-            placeholder="Ask follow-up questions..."
-            className=""
-          />
-        </PromptInputBody>
-        <PromptInputFooter className="">
-          <PromptInputTools>
-            <PromptInputActionMenu>
-              <PromptInputActionMenuTrigger />
-              <PromptInputActionMenuContent>
-                <PromptInputActionAddAttachments />
-              </PromptInputActionMenuContent>
-            </PromptInputActionMenu>
-          </PromptInputTools>
-          <PromptInputSubmit status={status} />
-        </PromptInputFooter>
-      </PromptInput>
+        placeholder="Ask follow-up questions..."
+      />
     </footer>
   );
 }
+
