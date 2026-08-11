@@ -3,7 +3,6 @@
 import {
   PromptInput,
   PromptInputActionAddAttachments,
-  PromptInputActionAddScreenshot,
   PromptInputActionMenu,
   PromptInputActionMenuContent,
   PromptInputActionMenuTrigger,
@@ -47,7 +46,6 @@ export function ChatInput({ status, onSubmit }: ChatInputProps) {
               <PromptInputActionMenuTrigger />
               <PromptInputActionMenuContent>
                 <PromptInputActionAddAttachments />
-                <PromptInputActionAddScreenshot />
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
           </PromptInputTools>

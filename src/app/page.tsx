@@ -4,7 +4,6 @@ import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import {
   PromptInput,
   PromptInputActionAddAttachments,
-  PromptInputActionAddScreenshot,
   PromptInputActionMenu,
   PromptInputActionMenuContent,
   PromptInputActionMenuTrigger,
@@ -67,7 +66,6 @@ export default function Home() {
               <PromptInputActionMenuTrigger />
               <PromptInputActionMenuContent>
                 <PromptInputActionAddAttachments />
-                <PromptInputActionAddScreenshot />
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
           </PromptInputTools>

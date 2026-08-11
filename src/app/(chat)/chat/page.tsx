@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 
 const ChatContent = dynamic(
-  () => import("./components/chat-content").then((mod) => mod.ChatContent),
+  () => import("@/features/chat").then((mod) => mod.ChatContent),
   {
     ssr: false,
     loading: () => <ChatLoading />,
@@ -21,3 +21,4 @@ function ChatLoading() {
 export default function ChatPage() {
   return <ChatContent />;
 }
+
