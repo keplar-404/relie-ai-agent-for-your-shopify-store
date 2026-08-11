@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import type { PromptInputMessage } from "@/components/ai-elements/prompt-input"
+import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -13,30 +13,32 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
-} from "@/components/ai-elements/prompt-input"
-import { useRouter } from "next/navigation"
-import { useCallback, useState } from "react"
+} from "@/components/ai-elements/prompt-input";
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
 
-const SUBMITTING_TIMEOUT = 200
+const SUBMITTING_TIMEOUT = 200;
+
+type HomeSubmitStatus = "submitted" | "streaming" | "ready" | "error";
 
 export default function Home() {
-  const router = useRouter()
-  const [status, setStatus] = useState<
-    "submitted" | "streaming" | "ready" | "error"
-  >("ready")
+  const router = useRouter();
+  const [status, setStatus] = useState<HomeSubmitStatus>("ready");
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      const text = message.text?.trim()
-      if (!text && !message.files?.length) return
+      const text = message.text?.trim();
+      const hasAttachments = Boolean(message.files?.length);
 
-      setStatus("submitted")
+      if (!text && !hasAttachments) return;
+
+      setStatus("submitted");
       setTimeout(() => {
-        router.push(`/chat?q=${encodeURIComponent(text || "Attachments")}`)
-      }, SUBMITTING_TIMEOUT)
+        router.push(`/chat?q=${encodeURIComponent(text || "Attachments")}`);
+      }, SUBMITTING_TIMEOUT);
     },
     [router]
-  )
+  );
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-background px-4">
@@ -73,5 +75,5 @@ export default function Home() {
         </PromptInputFooter>
       </PromptInput>
     </div>
-  )
+  );
 }

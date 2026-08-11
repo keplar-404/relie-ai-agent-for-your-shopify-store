@@ -6,6 +6,12 @@
       "sourceType": "github",
       "skillPath": "skills/ai-elements/SKILL.md",
       "computedHash": "6d7ccc65b98adb04d6c47632746dbfea55528903de9b027f6b39b80983d5aa55"
+    },
+    "clean-code-ts-react": {
+      "source": "pproenca/dot-skills",
+      "sourceType": "github",
+      "skillPath": "skills/.experimental/clean-code-ts-react/SKILL.md",
+      "computedHash": "06576c9c8ac7ead123869f692b745da8c5c541df45c0a59c436b455da85cb07c"
     }
   }
 }
