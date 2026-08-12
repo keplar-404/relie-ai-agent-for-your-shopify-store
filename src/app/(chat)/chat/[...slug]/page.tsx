@@ -1,20 +1,10 @@
-"use client";
-
-import dynamic from "next/dynamic";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ChatPreviewPanel } from "@/features/chat/components/chat-preview-panel";
-
-const ChatContent = dynamic(
-  () => import("@/features/chat").then((mod) => mod.ChatContent),
-  {
-    ssr: false,
-    loading: () => <ChatLoading />,
-  }
-);
+import { ChatContent } from "@/features/chat";
 
 function ChatLoading() {
   return (
