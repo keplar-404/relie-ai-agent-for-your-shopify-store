@@ -3,8 +3,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { ChatPreviewPanel } from "@/features/chat/components/chat-preview-panel";
-import { ChatContent } from "@/features/chat";
+import { ChatPreviewPanel } from "@/features/userChat/components/chat-preview-panel";
+import { ChatContent } from "@/features/userChat";
 
 function ChatLoading() {
   return (

@@ -7,7 +7,8 @@ import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
 const STREAMING_START_TIMEOUT = 300;
 const RESPONSE_COMPLETE_TIMEOUT = 1500;
-const DEFAULT_INITIAL_QUERY = "How can I optimize my Shopify store conversions?";
+const DEFAULT_INITIAL_QUERY =
+  "How can I optimize my Shopify store conversions?";
 
 export function useShopifyChat() {
   const searchParams = useSearchParams();
@@ -35,7 +36,8 @@ export function useShopifyChat() {
     if (!text && !hasAttachments) return;
 
     const userMessageId = Date.now().toString();
-    const messageText = text || (hasAttachments ? "[Attachments uploaded]" : "");
+    const messageText =
+      text || (hasAttachments ? "[Attachments uploaded]" : "");
     const newUserMessage: ChatMessage = {
       id: userMessageId,
       role: "user",
