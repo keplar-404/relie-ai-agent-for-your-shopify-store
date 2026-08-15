@@ -13,6 +13,12 @@
       "skillPath": "skills/.experimental/clean-code-ts-react/SKILL.md",
       "computedHash": "06576c9c8ac7ead123869f692b745da8c5c541df45c0a59c436b455da85cb07c"
     },
+    "daytona": {
+      "source": "daytona/skills",
+      "sourceType": "github",
+      "skillPath": "skills/daytona/SKILL.md",
+      "computedHash": "5415fb0fbbbc276345f8c133c5c9421123e08706d06a1b64f2e87ba96452134d"
+    },
     "deep-agents-core": {
       "source": "langchain-ai/langchain-skills",
       "sourceType": "github",
