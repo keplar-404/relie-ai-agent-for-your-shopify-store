@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -5,16 +8,27 @@ import {
 } from "@/components/ui/resizable";
 import { ChatPreviewPanel } from "@/features/userChat/components/chat-preview-panel";
 import { ChatContent } from "@/features/userChat";
-
-function ChatLoading() {
-  return (
-    <div className="flex items-center justify-center h-full w-full text-sm text-muted-foreground">
-      Loading...
-    </div>
-  );
-}
+import { provisionSandbox } from "@/lib/api";
 
 export default function ChatPage() {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const hasCalled = useRef(false);
+
+  useEffect(() => {
+    if (hasCalled.current) return;
+    hasCalled.current = true;
+    
+    provisionSandbox()
+      .then((data) => {
+        if (data.previewUrl) {
+          setPreviewUrl(data.previewUrl);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  }, []);
+
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
       {/* Left Panel: Chat Interface */}
@@ -31,7 +45,7 @@ export default function ChatPage() {
 
       {/* Right Panel: Web Preview & Code View */}
       <ResizablePanel className="hidden md:flex flex-col h-full bg-background">
-        <ChatPreviewPanel />
+        <ChatPreviewPanel initialUrl={previewUrl} />
       </ResizablePanel>
     </ResizablePanelGroup>
   );

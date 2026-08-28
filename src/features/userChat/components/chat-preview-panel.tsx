@@ -11,7 +11,7 @@ import { Code2Icon, EyeIcon } from "lucide-react";
 import { useState } from "react";
 
 export interface ChatPreviewPanelProps {
-  initialUrl?: string;
+  initialUrl?: string | null;
   codeSnippet?: string;
 }
 
@@ -63,12 +63,26 @@ export function ChatPreviewPanel({
       <div className="flex-1 overflow-hidden">
         <Tabs value={activeTab} className="h-full w-full">
           <TabsContent value="preview" className="h-full m-0 p-0">
-            <WebPreview defaultUrl={initialUrl} className="h-full border-none rounded-none">
-              <WebPreviewNavigation>
-                <WebPreviewUrl />
-              </WebPreviewNavigation>
-              <WebPreviewBody src={initialUrl} />
-            </WebPreview>
+            {initialUrl === null ? (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-muted/10 p-8 text-center animate-fade-in duration-300">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold tracking-tight text-foreground">
+                    Provisioning Code Sandbox
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                    Setting up your Shopify preview environment and installing dependencies...
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <WebPreview key={initialUrl} defaultUrl={initialUrl} className="h-full border-none rounded-none">
+                <WebPreviewNavigation>
+                  <WebPreviewUrl />
+                </WebPreviewNavigation>
+                <WebPreviewBody />
+              </WebPreview>
+            )}
           </TabsContent>
           <TabsContent value="code" className="h-full m-0 p-4 bg-muted/10 font-mono text-xs overflow-auto">
             <pre className="p-4 rounded-lg bg-muted border text-foreground overflow-x-auto">

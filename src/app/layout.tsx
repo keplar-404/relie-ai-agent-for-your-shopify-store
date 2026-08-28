@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Agentation } from "agentation";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -15,7 +16,7 @@ const alexandria = Alexandria({
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
+  });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           disableTransitionOnChange
         >
           {children}
+          <Toaster richColors closeButton position="top-right" />
         </ThemeProvider>
       </body>
       {process.env.NODE_ENV === "development" && <Agentation />}

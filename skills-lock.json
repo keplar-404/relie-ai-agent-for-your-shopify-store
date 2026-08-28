@@ -17,7 +17,7 @@
       "source": "daytona/skills",
       "sourceType": "github",
       "skillPath": "skills/daytona/SKILL.md",
-      "computedHash": "5415fb0fbbbc276345f8c133c5c9421123e08706d06a1b64f2e87ba96452134d"
+      "computedHash": "28d722795bdfd315675c086bb26044980bc4b9a5dc9b7af6b9f88fada9503dec"
     },
     "deep-agents-core": {
       "source": "langchain-ai/langchain-skills",
