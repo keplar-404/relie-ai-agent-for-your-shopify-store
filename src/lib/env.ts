@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().min(1, "OPENROUTER_API_KEY is required"),
-  DAYTONA_API_KEY: z.string().min(1, "DAYTONA API KEY is required"),
+  DAYTONA_API_KEY: z.string().optional(),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),

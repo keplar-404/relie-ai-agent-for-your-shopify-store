@@ -43,13 +43,13 @@ export const ModelSelectorContent = ({
   <DialogContent
     aria-describedby={undefined}
     className={cn(
-      "outline! border-none! p-0 outline-border! outline-solid!",
+      "outline! border-none! p-0 outline-border! outline-solid! [&>[data-slot=dialog-close]]:top-3 [&>[data-slot=dialog-close]]:rounded-full",
       className
     )}
     {...props}
   >
     <DialogTitle className="sr-only">{title}</DialogTitle>
-    <Command className="**:data-[slot=command-input-wrapper]:h-auto">
+    <Command className="pt-2 **:data-[slot=command-input-wrapper]:h-auto **:data-[slot=command-input-wrapper]:pr-12">
       {children}
     </Command>
   </DialogContent>
@@ -100,77 +100,70 @@ export const ModelSelectorShortcut = (props: ModelSelectorShortcutProps) => (
   <CommandShortcut {...props} />
 );
 
-export type ModelSelectorSeparatorProps = ComponentProps<
-  typeof CommandSeparator
->;
-
-export const ModelSelectorSeparator = (props: ModelSelectorSeparatorProps) => (
-  <CommandSeparator {...props} />
-);
 
 export type ModelSelectorLogoProps = Omit<
   ComponentProps<"img">,
   "src" | "alt"
 > & {
   provider:
-    | "moonshotai-cn"
-    | "lucidquery"
-    | "moonshotai"
-    | "zai-coding-plan"
-    | "alibaba"
-    | "xai"
-    | "vultr"
-    | "nvidia"
-    | "upstage"
-    | "groq"
-    | "github-copilot"
-    | "mistral"
-    | "vercel"
-    | "nebius"
-    | "deepseek"
-    | "alibaba-cn"
-    | "google-vertex-anthropic"
-    | "venice"
-    | "chutes"
-    | "cortecs"
-    | "github-models"
-    | "togetherai"
-    | "azure"
-    | "baseten"
-    | "huggingface"
-    | "opencode"
-    | "fastrouter"
-    | "google"
-    | "google-vertex"
-    | "cloudflare-workers-ai"
-    | "inception"
-    | "wandb"
-    | "openai"
-    | "zhipuai-coding-plan"
-    | "perplexity"
-    | "openrouter"
-    | "zenmux"
-    | "v0"
-    | "iflowcn"
-    | "synthetic"
-    | "deepinfra"
-    | "zhipuai"
-    | "submodel"
-    | "zai"
-    | "inference"
-    | "requesty"
-    | "morph"
-    | "lmstudio"
-    | "anthropic"
-    | "aihubmix"
-    | "fireworks-ai"
-    | "modelscope"
-    | "llama"
-    | "scaleway"
-    | "amazon-bedrock"
-    | "cerebras"
-    // oxlint-disable-next-line typescript-eslint(ban-types) -- intentional pattern for autocomplete-friendly string union
-    | (string & {});
+  | "moonshotai-cn"
+  | "lucidquery"
+  | "moonshotai"
+  | "zai-coding-plan"
+  | "alibaba"
+  | "xai"
+  | "vultr"
+  | "nvidia"
+  | "upstage"
+  | "groq"
+  | "github-copilot"
+  | "mistral"
+  | "vercel"
+  | "nebius"
+  | "deepseek"
+  | "alibaba-cn"
+  | "google-vertex-anthropic"
+  | "venice"
+  | "chutes"
+  | "cortecs"
+  | "github-models"
+  | "togetherai"
+  | "azure"
+  | "baseten"
+  | "huggingface"
+  | "opencode"
+  | "fastrouter"
+  | "google"
+  | "google-vertex"
+  | "cloudflare-workers-ai"
+  | "inception"
+  | "wandb"
+  | "openai"
+  | "zhipuai-coding-plan"
+  | "perplexity"
+  | "openrouter"
+  | "zenmux"
+  | "v0"
+  | "iflowcn"
+  | "synthetic"
+  | "deepinfra"
+  | "zhipuai"
+  | "submodel"
+  | "zai"
+  | "inference"
+  | "requesty"
+  | "morph"
+  | "lmstudio"
+  | "anthropic"
+  | "aihubmix"
+  | "fireworks-ai"
+  | "modelscope"
+  | "llama"
+  | "scaleway"
+  | "amazon-bedrock"
+  | "cerebras"
+  // oxlint-disable-next-line typescript-eslint(ban-types) -- intentional pattern for autocomplete-friendly string union
+  | (string & {});
 };
 
 export const ModelSelectorLogo = ({
@@ -181,10 +174,10 @@ export const ModelSelectorLogo = ({
   <img
     {...props}
     alt={`${provider} logo`}
-    className={cn("size-3 dark:invert", className)}
-    height={12}
+    className={cn("size-4 dark:invert", className)}
+    height={16}
     src={`https://models.dev/logos/${provider}.svg`}
-    width={12}
+    width={16}
   />
 );
 

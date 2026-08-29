@@ -1,22 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter, Alexandria } from "next/font/google";
+import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Agentation } from "agentation";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-
-const alexandria = Alexandria({
-  subsets: ["latin"],
-  variable: "--font-alexandria",
-});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -24,15 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Relie Shopify AI Assistant",
-  description: "Relie AI Assistant agent for Shopify store optimization",
+  title: "Relie AI Assistant",
+  description: "Relie AI Assistant agent for store optimization",
 };
 
-interface RootLayoutProps {
-  children: React.ReactNode;
-}
-
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
@@ -40,11 +26,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
       className={cn(
         "h-full",
         "antialiased",
-        geistSans.variable,
-        geistMono.variable,
         "font-sans",
-        inter.variable,
-        alexandria.variable,
+        geistMono.variable,
+        inter.variable
       )}
     >
       <body className="min-h-full flex flex-col">
@@ -62,4 +46,5 @@ export default function RootLayout({ children }: RootLayoutProps) {
     </html>
   );
 }
+
 

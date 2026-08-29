@@ -4,44 +4,54 @@ export interface ModelItemData {
   id: string;
   name: string;
   providers: string[];
+  reasoningEfforts?: string[];
 }
 
 export const DEFAULT_MODELS: ModelItemData[] = [
   {
+    chef: "OpenRouter",
+    chefSlug: "openrouter",
+    id: "openrouter/free",
+    name: "OpenRouter Auto/Free",
+    providers: ["openrouter"],
+  },
+  {
     chef: "OpenAI",
     chefSlug: "openai",
-    id: "gpt-4o",
+    id: "openai/gpt-4o",
     name: "GPT-4o",
-    providers: ["openai", "azure"],
-  },
-  {
-    chef: "OpenAI",
-    chefSlug: "openai",
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    providers: ["openai", "azure"],
+    providers: ["openrouter"],
   },
   {
     chef: "Anthropic",
     chefSlug: "anthropic",
-    id: "claude-opus-4-20250514",
-    name: "Claude 4 Opus",
-    providers: ["anthropic", "azure", "google", "amazon-bedrock"],
-  },
-  {
-    chef: "Anthropic",
-    chefSlug: "anthropic",
-    id: "claude-sonnet-4-20250514",
-    name: "Claude 4 Sonnet",
-    providers: ["anthropic", "azure", "google", "amazon-bedrock"],
+    id: "anthropic/claude-3.5-sonnet",
+    name: "Claude 3.5 Sonnet",
+    providers: ["openrouter"],
   },
   {
     chef: "Google",
     chefSlug: "google",
-    id: "gemini-2.0-flash-exp",
-    name: "Gemini 2.0 Flash",
-    providers: ["google"],
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    providers: ["openrouter"],
+    reasoningEfforts: ["minimal", "low", "medium", "high"],
+  },
+  {
+    chef: "DeepSeek",
+    chefSlug: "deepseek",
+    id: "deepseek/deepseek-r1",
+    name: "DeepSeek R1",
+    providers: ["openrouter"],
+    reasoningEfforts: ["low", "high", "max"],
+  },
+  {
+    chef: "Meta",
+    chefSlug: "llama",
+    id: "meta-llama/llama-3.3-70b-instruct",
+    name: "Llama 3.3 70B",
+    providers: ["openrouter"],
   },
 ];
 
-export const MODEL_CHEFS = ["OpenAI", "Anthropic", "Google"] as const;
+

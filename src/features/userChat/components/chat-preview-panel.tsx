@@ -12,25 +12,10 @@ import { useState } from "react";
 
 export interface ChatPreviewPanelProps {
   initialUrl?: string | null;
-  codeSnippet?: string;
 }
-
-const SAMPLE_CODE = `// Store Optimization Agent Response
-import { ChatOpenRouter } from "@/services/aiProvider/openRouter/client";
-
-export async function generateProductSuggestions(storeId: string) {
-  const model = new ChatOpenRouter({
-    model: "openai/gpt-4o",
-  });
-
-  return await model.invoke([
-    { role: "user", content: "Analyze store conversion rate..." }
-  ]);
-}`;
 
 export function ChatPreviewPanel({
   initialUrl = "https://relie-ai.com",
-  codeSnippet = SAMPLE_CODE,
 }: ChatPreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
 
@@ -71,7 +56,7 @@ export function ChatPreviewPanel({
                     Provisioning Code Sandbox
                   </p>
                   <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                    Setting up your Shopify preview environment and installing dependencies...
+                    Setting up your preview environment and installing dependencies...
                   </p>
                 </div>
               </div>
@@ -84,10 +69,8 @@ export function ChatPreviewPanel({
               </WebPreview>
             )}
           </TabsContent>
-          <TabsContent value="code" className="h-full m-0 p-4 bg-muted/10 font-mono text-xs overflow-auto">
-            <pre className="p-4 rounded-lg bg-muted border text-foreground overflow-x-auto">
-              <code>{codeSnippet}</code>
-            </pre>
+          <TabsContent value="code" className="h-full m-0 p-4 bg-muted/10 font-mono text-xs overflow-auto flex items-center justify-center">
+            <p className="text-muted-foreground text-sm">No code output yet.</p>
           </TabsContent>
         </Tabs>
       </div>

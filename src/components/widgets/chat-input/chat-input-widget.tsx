@@ -19,16 +19,10 @@ import { PromptInputAttachmentsDisplay } from "./prompt-attachments-display";
 import type { ModelItemData } from "./models";
 import { cn } from "@/lib/utils";
 
-function PromptInputAttachButton() {
+function AttachButton() {
   const attachments = usePromptInputAttachments();
   return (
-    <PromptInputButton
-      type="button"
-      onClick={() => attachments.openFileDialog()}
-      tooltip="Attach files"
-
-
-    >
+    <PromptInputButton type="button" onClick={() => attachments.openFileDialog()} tooltip="Attach files">
       <PaperclipIcon size={16} />
     </PromptInputButton>
   );
@@ -39,14 +33,15 @@ export interface ChatInputWidgetProps {
   onSubmit: (message: PromptInputMessage) => void;
   placeholder?: string;
   className?: string;
-  bodyClassName?: string;
-  textareaClassName?: string;
-  footerClassName?: string;
   showAttachments?: boolean;
   showModelSelector?: boolean;
   selectedModel?: string;
   onModelChange?: (modelId: string) => void;
+  selectedReasoning?: string;
+  onReasoningChange?: (reasoning: string) => void;
   models?: ModelItemData[];
+  mode?: "ask" | "build";
+  onModeChange?: (mode: "ask" | "build") => void;
 }
 
 export function ChatInputWidget({
@@ -54,14 +49,15 @@ export function ChatInputWidget({
   onSubmit,
   placeholder = "Ask anything about your store...",
   className = "w-full",
-  bodyClassName,
-  textareaClassName,
-  footerClassName,
   showAttachments = true,
   showModelSelector = true,
   selectedModel,
   onModelChange,
+  selectedReasoning,
+  onReasoningChange,
   models,
+  mode,
+  onModeChange,
 }: ChatInputWidgetProps) {
   return (
     <div className="size-full flex items-center justify-center">
@@ -76,25 +72,57 @@ export function ChatInputWidget({
 
           >
             {showAttachments && <PromptInputAttachmentsDisplay />}
-            <PromptInputBody className={bodyClassName}>
+            <PromptInputBody>
               <PromptInputTextarea
                 placeholder={placeholder}
-                className={cn("p-4", textareaClassName)}
+                className="p-4"
               />
             </PromptInputBody>
-            <PromptInputFooter className={footerClassName}>
+            <PromptInputFooter>
               <PromptInputTools>
-                <PromptInputAttachButton />
+                <AttachButton />
 
                 {showModelSelector && (
                   <ModelSelectorWidget
                     value={selectedModel}
                     onValueChange={onModelChange}
+                    selectedReasoning={selectedReasoning}
+                    onReasoningChange={onReasoningChange}
                     models={models}
                   />
                 )}
               </PromptInputTools>
-              <PromptInputSubmit status={status} />
+              <div className="flex items-center gap-2">
+                {mode && onModeChange && (
+                  <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-lg border border-border h-8">
+                    <button
+                      type="button"
+                      onClick={() => onModeChange("ask")}
+                      className={cn(
+                        "px-2.5 h-full text-xs font-semibold rounded-md transition-all cursor-pointer",
+                        mode === "ask"
+                          ? "bg-background text-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Ask
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onModeChange("build")}
+                      className={cn(
+                        "px-2.5 h-full text-xs font-semibold rounded-md transition-all cursor-pointer",
+                        mode === "build"
+                          ? "bg-background text-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Build
+                    </button>
+                  </div>
+                )}
+                <PromptInputSubmit status={status} />
+              </div>
             </PromptInputFooter>
           </PromptInput>
         </PromptInputProvider>

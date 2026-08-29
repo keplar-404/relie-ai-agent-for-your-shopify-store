@@ -9,7 +9,7 @@ import {
 } from "@/components/ai-elements/attachments";
 import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input";
 import { cn } from "@/lib/utils";
-import { memo, useCallback } from "react";
+import { memo } from "react";
 
 interface AttachmentItemProps {
   attachment: AttachmentData;
@@ -18,23 +18,17 @@ interface AttachmentItemProps {
 }
 
 export const AttachmentItem = memo(
-  ({ attachment, onRemove, className }: AttachmentItemProps) => {
-    const handleRemove = useCallback(
-      () => onRemove(attachment.id),
-      [onRemove, attachment.id]
-    );
-    return (
-      <Attachment
-        data={attachment}
-        key={attachment.id}
-        onRemove={handleRemove}
-        className={className}
-      >
-        <AttachmentPreview />
-        <AttachmentRemove className="" />
-      </Attachment>
-    );
-  }
+  ({ attachment, onRemove, className }: AttachmentItemProps) => (
+    <Attachment
+      data={attachment}
+      key={attachment.id}
+      onRemove={() => onRemove(attachment.id)}
+      className={className}
+    >
+      <AttachmentPreview />
+      <AttachmentRemove className="" />
+    </Attachment>
+  )
 );
 
 AttachmentItem.displayName = "AttachmentItem";
@@ -43,11 +37,6 @@ AttachmentItem.displayName = "AttachmentItem";
 
 export function PromptInputAttachmentsDisplay() {
   const attachments = usePromptInputAttachments();
-
-  const handleRemove = useCallback(
-    (id: string) => attachments.remove(id),
-    [attachments]
-  );
 
   if (attachments.files.length === 0) {
     return null;
@@ -62,7 +51,7 @@ export function PromptInputAttachmentsDisplay() {
         <AttachmentItem
           attachment={attachment}
           key={attachment.id}
-          onRemove={handleRemove}
+          onRemove={attachments.remove}
           className={"size-10"}
         />
       ))}
