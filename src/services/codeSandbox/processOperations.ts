@@ -1,4 +1,7 @@
+import type { SessionCommandLogsResponse } from "@daytona/sdk";
 import sandBox from "./index";
+
+export type { SessionCommandLogsResponse };
 
 export interface CodeRunParams {
   argv?: string[];
@@ -14,14 +17,12 @@ export interface SessionCommandRequest {
   env?: Record<string, string>;
 }
 
+/** Resolves a Daytona sandbox instance by ID. */
 async function getSandbox(sandboxId: string) {
   return sandBox.get(sandboxId);
 }
 
-/**
- * Runs a code snippet in the sandbox using the default language runtime.
- * Useful for one-off JavaScript/TypeScript/Python execution in a clean state.
- */
+/** Runs a code snippet in the sandbox using the default language runtime. */
 export async function codeRunStateless(
   sandboxId: string,
   code: string,
@@ -37,24 +38,7 @@ export async function codeRunStateless(
   );
 }
 
-/**
- * Runs code with CLI arguments and environment variables.
- * Good for scripts that need process.argv or custom env values.
- */
-export async function codeRunWithArgs(
-  sandboxId: string,
-  code: string,
-  argv: string[],
-  env?: Record<string, string>,
-  timeout?: number,
-) {
-  return codeRunStateless(sandboxId, code, { argv, env, timeout }, timeout);
-}
-
-/**
- * Executes a shell command inside the sandbox using the sandbox process API.
- * Accepts a working directory, environment overrides, and timeout.
- */
+/** Executes a shell command inside the sandbox process. */
 export async function runShellCommand(
   sandboxId: string,
   command: string,
@@ -66,33 +50,19 @@ export async function runShellCommand(
   return sandbox.process.executeCommand(command, cwd, env, timeout);
 }
 
-/**
- * Runs a simple shell command with a default timeout and current directory.
- */
-export async function runShellCommandSimple(sandboxId: string, command: string) {
-  return runShellCommand(sandboxId, command, ".", undefined, 10);
-}
-
-/**
- * Creates a new Python interpreter context in the sandbox.
- * Use this when you want stateful execution isolated from other code runs.
- */
+/** Creates a new Python interpreter context in the sandbox. */
 export async function createCodeInterpreterContext(sandboxId: string, cwd?: string) {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.codeInterpreter.createContext(cwd);
 }
 
-/**
- * Lists all user-created Python interpreter contexts in the sandbox.
- */
+/** Lists all Python interpreter contexts created in the sandbox. */
 export async function listCodeInterpreterContexts(sandboxId: string) {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.codeInterpreter.listContexts();
 }
 
-/**
- * Deletes an interpreter context and shuts down its worker process.
- */
+/** Deletes a Python interpreter context and stops its process. */
 export async function deleteCodeInterpreterContext(
   sandboxId: string,
   context: any,
@@ -101,10 +71,7 @@ export async function deleteCodeInterpreterContext(
   return sandbox.codeInterpreter.deleteContext(context);
 }
 
-/**
- * Runs Python code inside an existing interpreter context.
- * Keeps state between calls when a context is reused.
- */
+/** Runs Python code inside an existing interpreter context. */
 export async function runCodeInContext(
   sandboxId: string,
   code: string,
@@ -129,34 +96,25 @@ export async function runCodeInContext(
   });
 }
 
-/**
- * Creates a long-running shell session in the sandbox.
- * Useful for multiple related commands that should share state.
- */
+/** Creates a long-running shell session in the sandbox. */
 export async function createSession(sandboxId: string, sessionId: string) {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.process.createSession(sessionId);
 }
 
-/**
- * Lists all active sessions in the sandbox.
- */
+/** Lists all active sessions in the sandbox. */
 export async function listSessions(sandboxId: string) {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.process.listSessions();
 }
 
-/**
- * Fetches metadata for a specific session, including its commands and status.
- */
+/** Fetches session details and command history. */
 export async function getSession(sandboxId: string, sessionId: string) {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.process.getSession(sessionId);
 }
 
-/**
- * Gets details for one command executed inside a session.
- */
+/** Gets details for a single command executed inside a session. */
 export async function getSessionCommand(
   sandboxId: string,
   sessionId: string,
@@ -166,25 +124,29 @@ export async function getSessionCommand(
   return sandbox.process.getSessionCommand(sessionId, commandId);
 }
 
-/**
- * Returns the sandbox entrypoint session so you can inspect the app startup process.
- */
+/** Gets details for the sandbox entrypoint session. */
 export async function getEntrypointSession(sandboxId: string) {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.process.getEntrypointSession();
 }
 
-/**
- * Fetches stdout/stderr logs from the sandbox entrypoint session.
- */
-export async function getEntrypointLogs(sandboxId: string) {
+/** Retrieves snapshot stdout/stderr logs from the entrypoint session. */
+export async function getEntrypointLogs(sandboxId: string): Promise<SessionCommandLogsResponse> {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.process.getEntrypointLogs();
 }
 
-/**
- * Executes a command inside an existing session while preserving state.
- */
+/** Streams stdout and stderr logs from the entrypoint session in real time. */
+export async function streamEntrypointLogs(
+  sandboxId: string,
+  onStdout: (chunk: string) => void,
+  onStderr: (chunk: string) => void,
+): Promise<void> {
+  const sandbox = await getSandbox(sandboxId);
+  return sandbox.process.getEntrypointLogs(onStdout, onStderr);
+}
+
+/** Executes a command inside an existing session while maintaining state. */
 export async function executeSessionCommand(
   sandboxId: string,
   sessionId: string,
@@ -195,21 +157,29 @@ export async function executeSessionCommand(
   return sandbox.process.executeSessionCommand(sessionId, request as any, timeout);
 }
 
-/**
- * Reads the output logs for a command that was run in a session.
- */
+/** Retrieves snapshot logs produced so far for a session command. */
 export async function getSessionCommandLogs(
   sandboxId: string,
   sessionId: string,
   commandId: string,
-) {
+): Promise<SessionCommandLogsResponse> {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.process.getSessionCommandLogs(sessionId, commandId);
 }
 
-/**
- * Sends user input to an interactive session command that is waiting for stdin.
- */
+/** Streams stdout and stderr logs for a session command in real time. */
+export async function streamSessionCommandLogs(
+  sandboxId: string,
+  sessionId: string,
+  commandId: string,
+  onStdout: (chunk: string) => void,
+  onStderr: (chunk: string) => void,
+): Promise<void> {
+  const sandbox = await getSandbox(sandboxId);
+  return sandbox.process.getSessionCommandLogs(sessionId, commandId, onStdout, onStderr);
+}
+
+/** Sends stdin user input to a command running in a session. */
 export async function sendSessionCommandInput(
   sandboxId: string,
   sessionId: string,
@@ -220,33 +190,8 @@ export async function sendSessionCommandInput(
   return sandbox.process.sendSessionCommandInput(sessionId, commandId, data);
 }
 
-/**
- * Deletes a session and releases the sandbox session resources.
- */
+/** Deletes a session and releases its resources. */
 export async function deleteSession(sandboxId: string, sessionId: string) {
   const sandbox = await getSandbox(sandboxId);
   return sandbox.process.deleteSession(sessionId);
 }
-
-export const daytonaProcessApi = {
-  codeRunStateless,
-  codeRunWithArgs,
-  runShellCommand,
-  runShellCommandSimple,
-  createCodeInterpreterContext,
-  listCodeInterpreterContexts,
-  deleteCodeInterpreterContext,
-  runCodeInContext,
-  createSession,
-  listSessions,
-  getSession,
-  getSessionCommand,
-  getEntrypointSession,
-  getEntrypointLogs,
-  executeSessionCommand,
-  getSessionCommandLogs,
-  sendSessionCommandInput,
-  deleteSession,
-};
-
-export default daytonaProcessApi;

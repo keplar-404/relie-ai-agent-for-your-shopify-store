@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import createCodeSandBox from "@/services/codeSandbox/creatSandbox";
+import createCodeSandBox from "@/services/codeSandbox/createSandbox";
 
 export async function POST() {
   try {

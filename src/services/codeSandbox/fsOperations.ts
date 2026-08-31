@@ -1,8 +1,7 @@
-// All functions take a `sandboxId` and resolve the sandbox via the shared client.
 import { Readable } from "node:stream";
 import sandBox from "./index";
 
-// ---------- List files and directories ----------
+/** Lists files and directories in the sandbox filesystem up to a given depth. */
 export async function listFs(
   sandboxId: string,
   path = "/home/sandBox/app",
@@ -12,13 +11,13 @@ export async function listFs(
   return sandbox.fs.listFiles(path, { depth });
 }
 
-// ---------- Get directory or file information ----------
+/** Gets details and metadata for a specific file or directory. */
 export async function getFileDetails(sandboxId: string, path: string) {
   const sandbox = await sandBox.get(sandboxId);
   return sandbox.fs.getFileDetails(path);
 }
 
-// ---------- Create directories ----------
+/** Creates a directory at the specified path with permission mode. */
 export async function createFolder(
   sandboxId: string,
   path: string,
@@ -28,32 +27,26 @@ export async function createFolder(
   return sandbox.fs.createFolder(path, mode);
 }
 
-// ---------- Upload files ----------
+/** Uploads a single file (Buffer or string) to the sandbox. */
 export async function uploadFile(
   sandboxId: string,
   content: Buffer | string,
   destPath: string,
 ) {
   const sandbox = await sandBox.get(sandboxId);
-  return sandbox.fs.uploadFile(
-    typeof content === "string" ? Buffer.from(content) : content,
-    destPath,
-  );
+  return sandbox.fs.uploadFile(content, destPath);
 }
 
+/** Uploads multiple files to the sandbox. */
 export async function uploadFiles(
   sandboxId: string,
   files: Array<{ source: Buffer | string; destination: string }>,
 ) {
   const sandbox = await sandBox.get(sandboxId);
-  return sandbox.fs.uploadFiles(
-    files.map((f) => ({
-      source: typeof f.source === "string" ? Buffer.from(f.source) : f.source,
-      destination: f.destination,
-    })),
-  );
+  return sandbox.fs.uploadFiles(files);
 }
 
+/** Uploads a file stream to the sandbox destination. */
 export async function uploadFileStream(
   sandboxId: string,
   source: Readable,
@@ -63,12 +56,13 @@ export async function uploadFileStream(
   return sandbox.fs.uploadFileStream(source, destPath);
 }
 
-// ---------- Download files ----------
+/** Downloads a file from the sandbox as Buffer content. */
 export async function downloadFile(sandboxId: string, path: string) {
   const sandbox = await sandBox.get(sandboxId);
   return sandbox.fs.downloadFile(path);
 }
 
+/** Downloads multiple files from the sandbox. */
 export async function downloadFiles(
   sandboxId: string,
   files: Array<{ source: string; destination?: string }>,
@@ -77,12 +71,13 @@ export async function downloadFiles(
   return sandbox.fs.downloadFiles(files);
 }
 
+/** Downloads a file from the sandbox as a readable stream. */
 export async function downloadFileStream(sandboxId: string, path: string) {
   const sandbox = await sandBox.get(sandboxId);
   return sandbox.fs.downloadFileStream(path);
 }
 
-// ---------- Delete files ----------
+/** Deletes a file or directory in the sandbox. */
 export async function deleteFile(
   sandboxId: string,
   path: string,
@@ -92,13 +87,13 @@ export async function deleteFile(
   return sandbox.fs.deleteFile(path, recursive);
 }
 
-// ---------- File permissions ----------
 export interface FilePermissions {
   mode?: string;
   owner?: string;
   group?: string;
 }
 
+/** Sets file permission mode, owner, and group in the sandbox. */
 export async function setFilePermissions(
   sandboxId: string,
   path: string,
@@ -108,7 +103,7 @@ export async function setFilePermissions(
   return sandbox.fs.setFilePermissions(path, perms);
 }
 
-// ---------- Search files by pattern (glob) ----------
+/** Searches for files matching a glob pattern in the sandbox path. */
 export async function searchFiles(
   sandboxId: string,
   path: string,
@@ -118,7 +113,7 @@ export async function searchFiles(
   return sandbox.fs.searchFiles(path, pattern);
 }
 
-// ---------- Find and replace ----------
+/** Finds files containing a specific pattern in the sandbox. */
 export async function findFiles(
   sandboxId: string,
   path: string,
@@ -128,6 +123,7 @@ export async function findFiles(
   return sandbox.fs.findFiles(path, pattern);
 }
 
+/** Performs find-and-replace across multiple files in the sandbox. */
 export async function replaceInFiles(
   sandboxId: string,
   files: string[],
@@ -138,7 +134,7 @@ export async function replaceInFiles(
   return sandbox.fs.replaceInFiles(files, pattern, newValue);
 }
 
-// ---------- Move or rename ----------
+/** Moves or renames files/directories in the sandbox. */
 export async function moveFiles(
   sandboxId: string,
   source: string,
