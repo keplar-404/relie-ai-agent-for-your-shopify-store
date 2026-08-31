@@ -1,0 +1,1 @@
+## This folder is for context api to manage global state. Don't delete it. 

@@ -1,8 +1,6 @@
-import { Daytona, Image } from "@daytona/sdk";
-import { env } from "@/lib/env";
+import { Image } from "@daytona/sdk";
+import sandBox from "./index";
 
-if (!env.DAYTONA_API_KEY) throw new Error("DAYTONA_API_KEY is not set");
-const sandBox = new Daytona({ apiKey: env.DAYTONA_API_KEY });
 const SNAPSHOT_NAME = "react-vite-bun-v2";
 
 export default async function createCodeSandBox(): Promise<{

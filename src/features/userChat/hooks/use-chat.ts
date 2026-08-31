@@ -7,11 +7,9 @@ import { DefaultChatTransport } from "ai";
 import { toast } from "sonner";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
-const DEFAULT_INITIAL_QUERY = "Hello! How can you help me today?";
-
 export function useChatSession() {
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") || DEFAULT_INITIAL_QUERY;
+  const initialQuery = searchParams.get("q");
   const initialMode = (searchParams.get("mode") as "ask" | "build") || "ask";
   const initialModel = searchParams.get("model") || "openrouter/free";
   const initialReasoning = searchParams.get("reasoning") || "";
@@ -23,7 +21,7 @@ export function useChatSession() {
   // Initialize Vercel AI SDK useChat hook with HttpChatTransport
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      api: "/api/agent",
       body: {
         model: selectedModel,
         reasoning: selectedReasoning,
@@ -48,7 +46,8 @@ export function useChatSession() {
     });
   }, [sendMessage]);
 
-  // Automatically submit initial query on mount if present
+  // Only auto-send when the URL explicitly carries an initial prompt (e.g. landing -> redirect).
+  // Refreshing /chat/<slug> with no ?q= should land on an empty composer, not a fabricated "Hi".
   const hasTriggeredInitial = useRef(false);
   useEffect(() => {
     if (initialQuery && !hasTriggeredInitial.current) {
