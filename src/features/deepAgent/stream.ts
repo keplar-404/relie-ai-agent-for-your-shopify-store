@@ -5,14 +5,6 @@ import type { UIMessage } from "ai";
 import { PERSONA_PRIMER_MESSAGES } from "./prompt";
 
 // Bridges DeepAgent streamEvents (v3) projections -> Vercel AI SDK UI message chunks
-// in arrival order across LLM turns.
-//
-// Inside each LLM message: reasoning opens -> reasoning-delta*N -> reasoning-end
-// -> text opens -> text-delta*N -> text-end. Tool calls fire concurrently via
-// stream.toolCalls and naturally land between LLM turns.
-//
-// ponytail: per-message reasoning-then-text keeps one block of each; tool lifecycle
-// runs in its own async loop and races the message loop on the same writer.
 export function runAgentStream(agent: DeepAgent, messages: UIMessage[]) {
   return createUIMessageStream({
     execute: async ({ writer }) => {

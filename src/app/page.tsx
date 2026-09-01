@@ -1,20 +1,30 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatInputWidget } from "@/components/widgets/chat-input";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { useChatStore } from "@/stores/use-chat-store";
 
 export default function Home() {
   const router = useRouter();
-  const [mode, setMode] = useState<"ask" | "build">("ask");
-  const [selectedModel, setSelectedModel] = useState<string>("openrouter/free");
-  const [selectedReasoning, setSelectedReasoning] = useState<string>("");
+
+  const selectedModel = useChatStore((state) => state.selectedModel);
+  const setSelectedModel = useChatStore((state) => state.setSelectedModel);
+  const selectedReasoning = useChatStore((state) => state.selectedReasoning);
+  const setSelectedReasoning = useChatStore((state) => state.setSelectedReasoning);
+  const setPendingMessage = useChatStore((state) => state.setPendingMessage);
 
   const handleSearchSubmit = (message: PromptInputMessage) => {
     const text = message.text?.trim();
-    if (!text) return;
-    router.push(`/chat/session?q=${encodeURIComponent(text)}&mode=${mode}&model=${encodeURIComponent(selectedModel)}&reasoning=${encodeURIComponent(selectedReasoning)}`);
+    const hasFiles = Boolean(message.files?.length);
+    if (!text && !hasFiles) return;
+
+    // Save initial prompt and files in Zustand store
+    setPendingMessage(message);
+
+    // Generate unique session UUID slug
+    const chatId = crypto.randomUUID();
+    router.push(`/chat/${chatId}`);
   };
 
   return (
@@ -32,8 +42,6 @@ export default function Home() {
             status="ready"
             onSubmit={handleSearchSubmit}
             placeholder="Ask anything about your store..."
-            mode={mode}
-            onModeChange={setMode}
             selectedModel={selectedModel}
             onModelChange={setSelectedModel}
             selectedReasoning={selectedReasoning}

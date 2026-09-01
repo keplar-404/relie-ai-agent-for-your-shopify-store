@@ -1,71 +1,90 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { toast } from "sonner";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { useChatStore } from "@/stores/use-chat-store";
 
 export function useChatSession() {
-  const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q");
-  const initialMode = (searchParams.get("mode") as "ask" | "build") || "ask";
-  const initialModel = searchParams.get("model") || "openrouter/free";
-  const initialReasoning = searchParams.get("reasoning") || "";
+  const sandboxId = useChatStore((state) => state.sandboxId);
+  const selectedModel = useChatStore((state) => state.selectedModel);
+  const setSelectedModel = useChatStore((state) => state.setSelectedModel);
+  const selectedReasoning = useChatStore((state) => state.selectedReasoning);
+  const setSelectedReasoning = useChatStore((state) => state.setSelectedReasoning);
+  const consumePendingMessage = useChatStore((state) => state.consumePendingMessage);
 
-  const [mode, setMode] = useState<"ask" | "build">(initialMode);
-  const [selectedModel, setSelectedModel] = useState<string>(initialModel);
-  const [selectedReasoning, setSelectedReasoning] = useState<string>(initialReasoning);
+  // Memoize transport so updated sandboxId, model, and reasoning are passed in body
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/agent",
+        body: {
+          sandboxId,
+          model: selectedModel,
+          reasoning: selectedReasoning,
+        },
+      }),
+    [sandboxId, selectedModel, selectedReasoning],
+  );
 
-  // Initialize Vercel AI SDK useChat hook with HttpChatTransport
+  // Initialize Vercel AI SDK useChat hook with DefaultChatTransport
   const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/agent",
-      body: {
-        model: selectedModel,
-        reasoning: selectedReasoning,
-      },
-    }),
+    transport,
     onError: (error) => {
       console.error("Chat streaming error:", error);
       toast.error(error.message || "An unexpected error occurred during the session.");
     },
   });
 
-  const handleSubmit = useCallback((message: PromptInputMessage) => {
-    const text = message.text?.trim() || "";
-    const hasAttachments = Boolean(message.files?.length);
+  const handleSubmit = useCallback(
+    (message: PromptInputMessage) => {
+      const text = message.text?.trim() || "";
+      const hasAttachments = Boolean(message.files?.length);
 
-    if (!text && !hasAttachments) return;
+      if (!text && !hasAttachments) return;
 
-    // Use built-in sendMessage helper from the AI SDK
-    sendMessage({
-      text,
-      files: message.files || [],
-    });
-  }, [sendMessage]);
+      sendMessage({
+        text,
+        files: message.files || [],
+      });
+    },
+    [sendMessage],
+  );
 
-  // Only auto-send when the URL explicitly carries an initial prompt (e.g. landing -> redirect).
-  // Refreshing /chat/<slug> with no ?q= should land on an empty composer, not a fabricated "Hi".
+  // Auto-send initial pending message from Zustand store once sandboxId is provisioned
   const hasTriggeredInitial = useRef(false);
   useEffect(() => {
-    if (initialQuery && !hasTriggeredInitial.current) {
+    if (hasTriggeredInitial.current) return;
+
+    const pending = useChatStore.getState().pendingMessage;
+    const activeSandbox = useChatStore.getState().sandboxId;
+
+    if (pending && activeSandbox) {
       hasTriggeredInitial.current = true;
-      handleSubmit({ text: initialQuery, files: [] });
+      consumePendingMessage();
+      handleSubmit(pending);
+    } else if (pending && !activeSandbox) {
+      // Fallback: trigger after 3s if sandbox provision is delayed
+      const timer = setTimeout(() => {
+        if (!hasTriggeredInitial.current) {
+          hasTriggeredInitial.current = true;
+          consumePendingMessage();
+          handleSubmit(pending);
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  }, [initialQuery, handleSubmit]);
+  }, [sandboxId, consumePendingMessage, handleSubmit]);
 
   return {
     messages,
     status,
     handleSubmit,
-    mode,
-    setMode,
     selectedModel,
     setSelectedModel,
     selectedReasoning,
     setSelectedReasoning,
   };
 }
-

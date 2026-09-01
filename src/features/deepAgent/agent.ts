@@ -1,7 +1,7 @@
 import { createDeepAgent } from "deepagents";
 import { ChatOpenRouter } from "@langchain/openrouter";
 import { env } from "@/lib/env";
-import { calculator } from "./tools/calculator";
+import * as tools from "./tools";
 import { SYSTEM_PROMPT } from "./prompt";
 
 export interface BuildAgentOptions {
@@ -20,7 +20,7 @@ export function buildRelieAgent({ model, reasoning }: BuildAgentOptions = {}) {
   return createDeepAgent({
     name: "relie-agent",
     model: chatModel,
-    tools: [calculator],
+    tools: Object.values(tools),
     systemPrompt: SYSTEM_PROMPT,
   });
 }

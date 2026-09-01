@@ -10,8 +10,6 @@ export function ChatContent() {
     messages,
     status,
     handleSubmit,
-    mode,
-    setMode,
     selectedModel,
     setSelectedModel,
     selectedReasoning,
@@ -27,8 +25,6 @@ export function ChatContent() {
           status={status}
           onSubmit={handleSubmit}
           placeholder="Ask follow-up questions..."
-          mode={mode}
-          onModeChange={setMode}
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
           selectedReasoning={selectedReasoning}

@@ -93,34 +93,6 @@ export function ChatInputWidget({
                 )}
               </PromptInputTools>
               <div className="flex items-center gap-2">
-                {mode && onModeChange && (
-                  <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-lg border border-border h-8">
-                    <button
-                      type="button"
-                      onClick={() => onModeChange("ask")}
-                      className={cn(
-                        "px-2.5 h-full text-xs font-semibold rounded-md transition-all cursor-pointer",
-                        mode === "ask"
-                          ? "bg-background text-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Ask
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onModeChange("build")}
-                      className={cn(
-                        "px-2.5 h-full text-xs font-semibold rounded-md transition-all cursor-pointer",
-                        mode === "build"
-                          ? "bg-background text-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Build
-                    </button>
-                  </div>
-                )}
                 <PromptInputSubmit status={status} />
               </div>
             </PromptInputFooter>

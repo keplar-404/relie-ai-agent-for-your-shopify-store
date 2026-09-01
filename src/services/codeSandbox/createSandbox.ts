@@ -1,5 +1,6 @@
 import { Image } from "@daytona/sdk";
 import sandBox from "./index";
+import { setActiveSandbox } from "./sandboxStore";
 
 const SNAPSHOT_NAME = "react-vite-bun-v2";
 
@@ -49,6 +50,9 @@ export default async function createCodeSandBox(): Promise<{
     });
   }
 
+  // Cache active sandbox instance in memory immediately
+  setActiveSandbox(sandbox);
+
   const preview = await sandbox.getSignedPreviewUrl(3000, 3600);
 
   return {
@@ -56,4 +60,3 @@ export default async function createCodeSandBox(): Promise<{
     sandboxId: sandbox.id,
   };
 }
-
