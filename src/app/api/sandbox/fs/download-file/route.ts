@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
+import { readFileText } from "@/services/codeSandbox/fsOperations";
 import { setActiveSandboxId } from "@/services/codeSandbox/sandboxStore";
-import { downloadFile } from "@/services/codeSandbox/fsOperations";
 
 export async function POST(req: Request) {
   try {
-    const { sandboxId } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const { path, startLine = 1, endLine = 200, sandboxId } = body;
     if (sandboxId) setActiveSandboxId(sandboxId);
-    const result = await downloadFile();
-    return NextResponse.json(JSON.parse(result));
+
+    const sLine = Number(startLine);
+    const eLine = Number(endLine);
+
+    const content = await readFileText(path, sLine, eLine);
+    return NextResponse.json({
+      success: true,
+      startLine: sLine,
+      endLine: eLine,
+      content,
+    });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error("[API: fs/download-file] Error:", error);
+    const message = error instanceof Error ? error.message : "Failed to download file";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

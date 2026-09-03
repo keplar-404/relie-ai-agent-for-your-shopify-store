@@ -13,7 +13,7 @@ export default async function createCodeSandBox(): Promise<{
     sandbox = await sandBox.create({
       snapshot: SNAPSHOT_NAME,
       ephemeral: true,
-      autoStopInterval: 5,
+      autoStopInterval: 20,
     });
   } catch {
     const image = Image.base("oven/bun:1-debian").runCommands(

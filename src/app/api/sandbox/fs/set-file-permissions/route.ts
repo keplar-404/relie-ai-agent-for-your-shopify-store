@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
-import { setActiveSandboxId } from "@/services/codeSandbox/sandboxStore";
 import { setFilePermissions } from "@/services/codeSandbox/fsOperations";
+import { setActiveSandboxId } from "@/services/codeSandbox/sandboxStore";
 
 export async function POST(req: Request) {
   try {
-    const { sandboxId, path, mode, owner, group } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const { path, perms, sandboxId } = body;
     if (sandboxId) setActiveSandboxId(sandboxId);
-    const result = await setFilePermissions(path, { mode, owner, group });
-    return NextResponse.json(JSON.parse(result));
+
+    const message = await setFilePermissions(path, perms || {});
+    return NextResponse.json({ success: true, message });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error("[API: fs/set-file-permissions] Error:", error);
+    const message = error instanceof Error ? error.message : "Failed to set file permissions";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

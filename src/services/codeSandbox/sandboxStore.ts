@@ -1,35 +1,33 @@
 import sandBox from "./index";
+import type { Sandbox } from "@daytona/sdk";
 
-let cachedSandbox: any = null;
-let cachedSandboxId: string | null = null;
+let activeSandboxInstance: Sandbox | null = null;
+let activeSandboxId: string | null = null;
 
-export function setActiveSandbox(sandbox: any) {
-  cachedSandbox = sandbox;
-  if (sandbox?.id) {
-    cachedSandboxId = sandbox.id;
-  }
+export function setActiveSandbox(sandbox: Sandbox) {
+  activeSandboxInstance = sandbox;
+  activeSandboxId = sandbox.id;
 }
 
-export function setActiveSandboxId(id: string | null) {
-  if (cachedSandboxId !== id) {
-    cachedSandboxId = id;
-    cachedSandbox = null; // reset cached instance when ID changes
+export function setActiveSandboxId(id: string) {
+  if (activeSandboxId !== id) {
+    activeSandboxId = id;
+    activeSandboxInstance = null;
   }
 }
 
 export function getActiveSandboxId(): string | null {
-  return cachedSandboxId;
+  return activeSandboxId;
 }
 
-export async function getActiveSandbox(): Promise<any> {
-  if (cachedSandbox) {
-    return cachedSandbox;
+export async function getActiveSandbox(): Promise<Sandbox> {
+  if (activeSandboxInstance) {
+    return activeSandboxInstance;
   }
-
-  if (cachedSandboxId) {
-    cachedSandbox = await sandBox.get(cachedSandboxId);
-    return cachedSandbox;
+  if (activeSandboxId) {
+    activeSandboxInstance = await sandBox.get(activeSandboxId);
+    return activeSandboxInstance;
   }
-
-  return null;
+  throw new Error("No active sandbox available. Create a sandbox first.");
 }
+

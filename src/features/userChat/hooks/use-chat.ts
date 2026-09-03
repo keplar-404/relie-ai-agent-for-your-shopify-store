@@ -32,6 +32,9 @@ export function useChatSession() {
   // Initialize Vercel AI SDK useChat hook with DefaultChatTransport
   const { messages, sendMessage, status } = useChat({
     transport,
+    onFinish: ({ message }) => {
+      console.log("🤖 [AI AGENT RESPONSE RECEIVED IN BROWSER]:", message);
+    },
     onError: (error) => {
       console.error("Chat streaming error:", error);
       toast.error(error.message || "An unexpected error occurred during the session.");

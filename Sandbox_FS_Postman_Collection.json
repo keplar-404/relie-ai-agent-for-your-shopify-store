@@ -1,0 +1,387 @@
+{
+  "info": {
+    "_postman_id": "c1f7a8b0-8e12-4d2a-9e12-sandbox-fs-api",
+    "name": "Daytona Sandbox FS API",
+    "description": "Postman Collection for Daytona Code Sandbox Filesystem API endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "sandboxId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Create Sandbox",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox"]
+        }
+      }
+    },
+    {
+      "name": "1. List Filesystem (listFs)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"path\": \".\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/list",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "list"]
+        }
+      }
+    },
+    {
+      "name": "2. Get File Details (getFileDetails)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"path\": \"package.json\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/get-file-details",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "get-file-details"]
+        }
+      }
+    },
+    {
+      "name": "3. Create Folder (createFolder)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"path\": \"src/components\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/create-folder",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "create-folder"]
+        }
+      }
+    },
+    {
+      "name": "4. Upload File (uploadFile)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"console.log('Hello Sandbox');\",\n  \"path\": \"src/hello.js\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/upload-file",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "upload-file"]
+        }
+      }
+    },
+    {
+      "name": "5. Upload Multiple Files (uploadFiles)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"files\": [\n    { \"source\": \"export const a = 1;\", \"destination\": \"src/file1.ts\" },\n    { \"source\": \"export const b = 2;\", \"destination\": \"src/file2.ts\" }\n  ],\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/upload-files",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "upload-files"]
+        }
+      }
+    },
+    {
+      "name": "6. Upload File Stream (uploadFileStream - JSON)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Stream content example\",\n  \"path\": \"src/stream-file.txt\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/upload-file-stream",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "upload-file-stream"]
+        }
+      }
+    },
+    {
+      "name": "6b. Upload File Stream (uploadFileStream - Real File / PDF / Image)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "description": "Select any PDF, PNG, JPG, or large file from your computer"
+            },
+            {
+              "key": "path",
+              "value": "src/sample.png",
+              "type": "text"
+            },
+            {
+              "key": "sandboxId",
+              "value": "{{sandboxId}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/upload-file-stream",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "upload-file-stream"]
+        }
+      }
+    },
+    {
+      "name": "7. Read File Text (readFileText)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"path\": \"package.json\",\n  \"startLine\": 1,\n  \"endLine\": 50,\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/read-file",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "read-file"]
+        }
+      }
+    },
+    {
+      "name": "8. Read Multiple Files Text (readFilesText)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"files\": [\n    { \"source\": \"package.json\", \"startLine\": 1, \"endLine\": 50 },\n    { \"source\": \"src/App.tsx\", \"startLine\": 1, \"endLine\": 50 }\n  ],\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/read-files",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "read-files"]
+        }
+      }
+    },
+    {
+      "name": "9. Download File Stream (POST Binary Stream)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"path\": \"src/logo.svg\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/download-file-stream",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "download-file-stream"]
+        }
+      }
+    },
+    {
+      "name": "9b. Download File Stream (GET Direct Link / Image / PDF / Zip)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/download-file-stream?path=src/logo.svg&sandboxId={{sandboxId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "download-file-stream"],
+          "query": [
+            {
+              "key": "path",
+              "value": "src/logo.svg"
+            },
+            {
+              "key": "sandboxId",
+              "value": "{{sandboxId}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. Search Files (searchFiles)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pattern\": \"*.ts\",\n  \"path\": \"src\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/search-files",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "search-files"]
+        }
+      }
+    },
+    {
+      "name": "11. Find Files Content (findFiles)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pattern\": \"export\",\n  \"path\": \"src\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/find-files",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "find-files"]
+        }
+      }
+    },
+    {
+      "name": "12. Replace In Files (replaceInFiles)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"files\": [\"src/hello.js\"],\n  \"pattern\": \"Hello Sandbox\",\n  \"newValue\": \"Hello Daytona\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/replace-in-files",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "replace-in-files"]
+        }
+      }
+    },
+    {
+      "name": "13. Move / Rename Files (moveFiles)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"source\": \"src/hello.js\",\n  \"destination\": \"src/greeting.js\",\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/move-files",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "move-files"]
+        }
+      }
+    },
+    {
+      "name": "14. Delete File (deleteFile)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"path\": \"src/greeting.js\",\n  \"recursive\": false,\n  \"sandboxId\": \"{{sandboxId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/sandbox/fs/delete-file",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "sandbox", "fs", "delete-file"]
+        }
+      }
+    }
+  ]
+}
+

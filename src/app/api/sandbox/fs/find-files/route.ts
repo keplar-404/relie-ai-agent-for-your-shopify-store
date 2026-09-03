@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
-import { setActiveSandboxId } from "@/services/codeSandbox/sandboxStore";
 import { findFiles } from "@/services/codeSandbox/fsOperations";
+import { setActiveSandboxId } from "@/services/codeSandbox/sandboxStore";
 
 export async function POST(req: Request) {
   try {
-    const { sandboxId, pattern } = await req.json().catch(() => ({}));
+    const body = await req.json();
+    const { pattern, path, sandboxId } = body;
     if (sandboxId) setActiveSandboxId(sandboxId);
-    const result = await findFiles(pattern);
-    return NextResponse.json(JSON.parse(result));
+
+    if (!pattern) {
+      return NextResponse.json({ error: "'pattern' is required" }, { status: 400 });
+    }
+
+    const result = await findFiles(pattern, path);
+    return NextResponse.json({ success: true, result });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error("[API: fs/find-files] Error:", error);
+    const message = error instanceof Error ? error.message : "Failed to find files";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

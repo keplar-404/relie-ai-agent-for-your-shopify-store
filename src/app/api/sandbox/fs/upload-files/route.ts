@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
-import { setActiveSandboxId } from "@/services/codeSandbox/sandboxStore";
 import { uploadFiles } from "@/services/codeSandbox/fsOperations";
+import { setActiveSandboxId } from "@/services/codeSandbox/sandboxStore";
 
 export async function POST(req: Request) {
   try {
-    const { sandboxId, files } = await req.json().catch(() => ({}));
+    const body = await req.json();
+    const { files, sandboxId } = body;
     if (sandboxId) setActiveSandboxId(sandboxId);
-    const result = await uploadFiles(files ?? []);
-    return NextResponse.json(JSON.parse(result));
+
+    if (!Array.isArray(files)) {
+      return NextResponse.json({ error: "'files' array is required" }, { status: 400 });
+    }
+
+    const result = await uploadFiles(files);
+    return NextResponse.json({ success: true, message: result });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error("[API: fs/upload-files] Error:", error);
+    const message = error instanceof Error ? error.message : "Failed to upload files";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

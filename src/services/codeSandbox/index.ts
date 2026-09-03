@@ -9,4 +9,5 @@ export default sandBox;
 export * from "./ptyOperations";
 export * from "./processOperations";
 export * from "./fsOperations";
+export * from "./sandboxStore";
 export { default as createCodeSandBox } from "./createSandbox";

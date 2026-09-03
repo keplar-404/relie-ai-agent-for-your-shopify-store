@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
   const chatModel = new ChatOpenRouter({
     apiKey: env.OPENROUTER_API_KEY,
-    model: model || "openrouter/free",
+    model: model || "openrouter/auto",
     temperature: 0.7,
     modelKwargs: {
       ...(reasoning ? { reasoning: { effort: reasoning } } : {}),

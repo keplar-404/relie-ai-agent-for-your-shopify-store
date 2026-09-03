@@ -15,7 +15,7 @@ export interface ChatStoreState {
 
 export const useChatStore = create<ChatStoreState>((set, get) => ({
   sandboxId: null,
-  selectedModel: "openrouter/free",
+  selectedModel: "openrouter/auto",
   selectedReasoning: "",
   pendingMessage: null,
   setSandboxId: (sandboxId) => set({ sandboxId }),
