@@ -8,13 +8,11 @@ export async function readFileText(
   endLine = 200,
 ) {
   try {
-    const sLine = Number(startLine);
-    const eLine = Number(endLine);
+    const sLine = Math.max(1, isNaN(Number(startLine)) ? 1 : Number(startLine));
+    let eLine = isNaN(Number(endLine)) ? sLine + 200 : Number(endLine);
 
-    if (isNaN(sLine) || isNaN(eLine) || sLine < 1 || eLine < sLine) {
-      throw new Error(
-        `Invalid line range: startLine (${startLine}) must be >= 1 and endLine (${endLine}) must be >= startLine.`,
-      );
+    if (eLine < sLine) {
+      eLine = sLine + 200;
     }
 
     const sandbox = await getActiveSandbox();

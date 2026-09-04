@@ -6,28 +6,21 @@ export const listFsTool = tool(
   async ({ path }) => listFs(path),
   {
     name: "list_fs",
-    description: `List top-level files and subdirectories at a specific directory path inside the sandbox app workspace (/home/daytona/app).
-
-WHEN TO USE:
-- Use to explore the directory structure before reading or modifying code.
-- Use to verify if files or folders exist in a directory.
-
-WHEN NOT TO USE:
-- Do NOT use if you need to search for files matching a glob pattern (use search_files instead).
-- Do NOT use if you need to find text content inside files (use find_files instead).
-
-EXAMPLES & SCENARIOS:
-Scenario 1: Inspecting files at the workspace root directory.
-  Call: list_fs({ path: "" })
-Scenario 2: Inspecting files inside the src directory.
-  Call: list_fs({ path: "src" })
-Scenario 3: Inspecting contents of a components folder.
-  Call: list_fs({ path: "src/components" })`,
+    description: `Tool Name: list_fs
+What it does: Lists top-level file and subdirectory names inside a specified directory in the sandbox workspace (/home/daytona/app).
+When to use: Use to explore directory contents and verify project structure before creating or editing files.
+Input Format: JSON object { path?: string } where path is relative to app root (e.g. '' for root, 'src', 'src/components').
+Output Format:
+  - On Success: Newline and space separated string of file/folder names (e.g. "src\n public\n package.json")
+  - On Error / Not Found: Throws an Error exception ("lstat /home/daytona/app/<path>: no such file or directory").
+Rules / Constraints:
+  - Do NOT use to read file text content (use 'read_file_text').
+  - Do NOT use to search by file pattern or text (use 'search_files' or 'find_files').`,
     schema: z.object({
       path: z
         .string()
         .optional()
-        .describe("Directory path relative to app root (e.g. '' for root, or 'src', 'src/components'). Defaults to root."),
+        .describe("Directory path relative to app root (e.g. '' for root, 'src', 'src/components'). Defaults to root."),
     }),
   },
 );

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
     const agent = buildRelieAgent({ model, reasoning });
     return createUIMessageStreamResponse({
-      stream: runAgentStream(agent, messages),
+      stream: runAgentStream(agent, messages, req.signal),
     });
   } catch (error: any) {
     const errorMsg = error?.message || String(error);

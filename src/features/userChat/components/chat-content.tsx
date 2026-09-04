@@ -9,6 +9,7 @@ export function ChatContent() {
   const {
     messages,
     status,
+    stop,
     handleSubmit,
     selectedModel,
     setSelectedModel,
@@ -23,6 +24,7 @@ export function ChatContent() {
       <footer className="p-4 border-t border-border bg-background">
         <ChatInputWidget
           status={status}
+          onStop={stop}
           onSubmit={handleSubmit}
           placeholder="Ask follow-up questions..."
           selectedModel={selectedModel}
@@ -34,5 +36,3 @@ export function ChatContent() {
     </>
   );
 }
-
-

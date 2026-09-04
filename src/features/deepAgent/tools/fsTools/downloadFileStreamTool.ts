@@ -7,22 +7,18 @@ export const downloadFileStreamTool = tool(
   },
   {
     name: "download_file_stream",
-    description: `Generate a direct browser download link for binary files (images like PNG/SVG, PDFs, ZIP archives, build artifacts) in the sandbox workspace.
-
-WHEN TO USE:
-- Use when the user asks to download, export, or retrieve a binary file (PNG image, SVG logo, PDF invoice, ZIP bundle) from the sandbox.
-- Present the returned URL link to the user so they can click and save the file directly to their computer.
-
-WHEN NOT TO USE:
-- Do NOT use to read source code or text files into model context (use read_file_text or read_files_text instead).
-
-EXAMPLES & SCENARIOS:
-Scenario 1: Providing a download link for a PNG image generated in the sandbox.
-  Call: download_file_stream({ path: "src/dashboard.png" })
-Scenario 2: Providing a download link for a built ZIP archive.
-  Call: download_file_stream({ path: "dist.zip" })`,
+    description: `Tool Name: download_file_stream
+What it does: Generates a direct 1-click browser download URL link for binary files (images, PDFs, ZIP archives, build artifacts) in the sandbox workspace.
+When to use: Use when the user requests to download, export, or retrieve a binary file or archive from the sandbox to their local computer.
+Input Format: JSON object { path: string } where path is relative to app root (e.g. 'public/logo.png').
+Output Format:
+  - On Success: String "Binary file download URL: /api/sandbox/fs/download-file-stream?path=<encodedPath>"
+  - On Error / Not Found: Returns the URL link string (browser request to URL handles 404 if file does not exist).
+Rules / Constraints:
+  - Do NOT use to read text or source code files into model context (use 'read_file_text').
+  - Format the returned URL as a markdown link for the user.`,
     schema: z.object({
-      path: z.string().describe("File path of the binary file relative to app root (e.g. 'src/logo.png', 'dist.zip')."),
+      path: z.string().describe("File path of the binary file relative to app root (e.g. 'src/assets/logo.png', 'dist.zip')."),
     }),
   },
 );

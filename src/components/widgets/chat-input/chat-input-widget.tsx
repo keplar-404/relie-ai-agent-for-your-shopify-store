@@ -17,7 +17,6 @@ import { PaperclipIcon } from "lucide-react";
 import { ModelSelectorWidget } from "./model-selector";
 import { PromptInputAttachmentsDisplay } from "./prompt-attachments-display";
 import type { ModelItemData } from "./models";
-import { cn } from "@/lib/utils";
 
 function AttachButton() {
   const attachments = usePromptInputAttachments();
@@ -31,6 +30,7 @@ function AttachButton() {
 export interface ChatInputWidgetProps {
   status: "ready" | "submitted" | "streaming" | "error";
   onSubmit: (message: PromptInputMessage) => void;
+  onStop?: () => void;
   placeholder?: string;
   className?: string;
   showAttachments?: boolean;
@@ -47,6 +47,7 @@ export interface ChatInputWidgetProps {
 export function ChatInputWidget({
   status,
   onSubmit,
+  onStop,
   placeholder = "Ask anything about your store...",
   className = "w-full",
   showAttachments = true,
@@ -56,8 +57,6 @@ export function ChatInputWidget({
   selectedReasoning,
   onReasoningChange,
   models,
-  mode,
-  onModeChange,
 }: ChatInputWidgetProps) {
   return (
     <div className="size-full flex items-center justify-center">
@@ -69,7 +68,6 @@ export function ChatInputWidget({
             globalDrop
             multiple
             accept="image/*,application/pdf"
-
           >
             {showAttachments && <PromptInputAttachmentsDisplay />}
             <PromptInputBody>
@@ -93,7 +91,7 @@ export function ChatInputWidget({
                 )}
               </PromptInputTools>
               <div className="flex items-center gap-2">
-                <PromptInputSubmit status={status} />
+                <PromptInputSubmit status={status} onStop={onStop} />
               </div>
             </PromptInputFooter>
           </PromptInput>
@@ -102,4 +100,3 @@ export function ChatInputWidget({
     </div>
   );
 }
-

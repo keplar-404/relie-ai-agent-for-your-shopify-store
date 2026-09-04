@@ -6,23 +6,20 @@ export const uploadFileTool = tool(
   async ({ content, path }) => uploadFile(content, path),
   {
     name: "upload_file",
-    description: `Write or update a single UTF-8 text file (source code like .tsx/.ts, JSON, Markdown, CSS, HTML, .env) in the sandbox app workspace.
-
-WHEN TO USE:
-- Use EXCLUSIVELY for writing or replacing text and code files (.tsx, .ts, .json, .css, .md, .html, .env).
-- Use when creating a new React component, styling file, or writing source code.
-
-WHEN NOT TO USE:
-- Do NOT use for binary uploads like PNG/JPG/ZIP files (use upload_file_stream for binary data).
-
-EXAMPLES & SCENARIOS:
-Scenario 1: Writing a new React component file.
-  Call: upload_file({ path: "src/components/Header.tsx", content: "export function Header() { return <header>Header</header>; }" })
-Scenario 2: Updating package.json configuration file.
-  Call: upload_file({ path: "package.json", content: "{\n  \"name\": \"app\"\n}" })`,
+    description: `Tool Name: upload_file
+What it does: Creates or overwrites a single UTF-8 text/code file (.tsx, .ts, .json, .css, .md, .html, .env) in the sandbox workspace (/home/daytona/app).
+When to use: Use when creating a new source file or completely updating an existing file with complete production-ready code.
+Input Format: JSON object { content: string, path?: string } relative to app root.
+Output Format:
+  - On Success: String "File uploaded successfully to /home/daytona/app/<path>"
+  - On Error / Not Found: Throws Error exception if path is invalid or write fails.
+Rules / Constraints:
+  - ALWAYS provide 100% complete file content. No placeholders like "// TODO" or "// rest of code remains same"!
+  - Do NOT use for writing multiple files simultaneously (use 'upload_files' to save turns).
+  - Do NOT use for binary files (images, PDFs, ZIP archives).`,
     schema: z.object({
-      content: z.string().describe("Complete UTF-8 text content to write into the file."),
-      path: z.string().optional().describe("Target text file path relative to app root (e.g. 'src/Header.tsx')."),
+      content: z.string().describe("Complete 100% UTF-8 text/code content to write into the file. No placeholders!"),
+      path: z.string().optional().describe("Target file path relative to app root (e.g. 'src/Header.tsx')."),
     }),
   },
 );

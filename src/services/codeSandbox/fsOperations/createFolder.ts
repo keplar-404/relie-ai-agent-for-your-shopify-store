@@ -1,7 +1,7 @@
 import { getActiveSandbox } from "../sandboxStore";
 import { resolvePath } from "./resolvePath";
 
-/** Creates a directory with default permission mode ('775') in the sandbox workspace. */
+/** Creates a directory or text based file with default permission mode ('775') in the sandbox workspace. */
 export async function createFolder(path?: string) {
   try {
     const sandbox = await getActiveSandbox();

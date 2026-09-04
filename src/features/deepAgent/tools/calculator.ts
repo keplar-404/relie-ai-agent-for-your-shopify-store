@@ -39,8 +39,15 @@ export const calculator = tool(
   },
   {
     name: "calculator",
-    description:
-      "Evaluate a math expression. Supports + - * / % ( ) and functions: sqrt, log, pow, abs, floor, ceil, round, min, max. Example: sqrt(2) + pow(3, 4).",
+    description: `Tool Name: calculator
+What it does: Evaluates mathematical expressions safely using supported operators (+ - * / % ( )) and functions (sqrt, log, pow, abs, floor, ceil, round, min, max).
+When to use: Use when performing numeric calculations, unit conversions, or layout dimension math.
+Input Format: JSON object { expression: string } containing a math expression under 200 characters.
+Output Format:
+  - On Success: String representation of the resulting number (e.g. "4", "1.4142135623730951").
+  - On Error / Not Found: String error message "Error: <reason>" (e.g. "Error: expression contains disallowed characters.", "Error: result is not a finite number.").
+Rules / Constraints:
+  - Expression must be under 200 characters and contain only allowed math symbols/functions.`,
     schema: z.object({
       expression: z.string().describe("Math expression to evaluate."),
     }),
