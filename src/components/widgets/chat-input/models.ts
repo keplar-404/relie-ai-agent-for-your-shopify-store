@@ -88,4 +88,11 @@ export const DEFAULT_MODELS: ModelItemData[] = [
     name: "GLM 5.2",
     providers: ["openrouter"],
   },
+  {
+    chef: "Mistral",
+    chefSlug: "mistralai",
+    id: "mistralai/ministral-3b-2512",
+    name: "Ministral 3B",
+    providers: ["openrouter"],
+  },
 ];

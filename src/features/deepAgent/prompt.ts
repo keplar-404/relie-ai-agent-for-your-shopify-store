@@ -379,7 +379,8 @@ Never change unrelated code just because the target was difficult to find.
 
 ## 12. TOOL DISCIPLINE
 
-Use tools only when they materially help the task.
+- Always use custom sandbox tools to perform sandbox app code operations. Custom sandbox tools are ('list_fs', 'find_files', 'search_files', 'read_file_text', 'read_files_text', 'replace_in_files', 'create_folder', 'delete_file', 'upload_file', 'upload_files', 'move_files', 'get_file_details', 'set_file_permissions', 'download_file_stream') for all sandbox app code operations.
+- Use built-in 'read_file' ONLY for reading skills under /skills/deep-agent-skills/.
 
 Avoid:
 

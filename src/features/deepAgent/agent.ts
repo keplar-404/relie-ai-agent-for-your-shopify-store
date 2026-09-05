@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 import * as tools from "./tools";
 import { SYSTEM_PROMPT } from "./prompt";
 import { todoListMiddleware } from "langchain";
+import { MemorySaver } from "@langchain/langgraph";
 
 export interface BuildAgentOptions {
   model?: string;
@@ -24,15 +25,18 @@ export function buildRelieAgent({ model, reasoning }: BuildAgentOptions = {}) {
     virtualMode: true,
   });
 
+  const checkpointer = new MemorySaver();
+
   return createDeepAgent({
     name: "relie-agent",
     model: chatModel,
     backend,
+    checkpointer,
     skills: ["/skills/deep-agent-skills/"],
     permissions: [
       {
         operations: ["write"],
-        paths: ["/skills/**"],
+        paths: ["/**"],
         mode: "deny",
       },
     ],
