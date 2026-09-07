@@ -47,6 +47,9 @@ export function runAgentStream(agent: DeepAgent, messages: UIMessage[], signal?:
           signal,
           runName: "relie-agent",
           tags: ["relie-agent", "production"],
+          configurable: {
+            thread_id: messageId,
+          },
           metadata: {
             messageId,
             project: env.LANGSMITH_PROJECT,
