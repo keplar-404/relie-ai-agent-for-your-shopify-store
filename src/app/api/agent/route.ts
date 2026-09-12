@@ -13,11 +13,15 @@ export async function POST(req: Request) {
       model,
       reasoning,
       sandboxId,
+      chatId,
+      threadId,
     }: {
       messages: UIMessage[];
       model: string;
       reasoning: string;
       sandboxId?: string | null;
+      chatId?: string | null;
+      threadId?: string | null;
     } = await req.json();
 
     if (sandboxId) {
@@ -28,9 +32,12 @@ export async function POST(req: Request) {
     }
 
     const agent = buildRelieAgent({ model, reasoning });
+    const activeThreadId = threadId || chatId || undefined;
+
     return createUIMessageStreamResponse({
-      stream: runAgentStream(agent, messages, req.signal),
+      stream: runAgentStream(agent, messages, req.signal, activeThreadId),
     });
+
   } catch (error: any) {
     const errorMsg = error?.message || String(error);
     console.error("[AGENT ROUTE] Error:", errorMsg);

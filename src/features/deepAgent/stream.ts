@@ -6,10 +6,16 @@ import { env } from "@/lib/env";
 import { PERSONA_PRIMER_MESSAGES } from "./prompt";
 
 // Bridges DeepAgent streamEvents (v3) projections -> Vercel AI SDK UI message chunks with AbortSignal cancellation support
-export function runAgentStream(agent: DeepAgent, messages: UIMessage[], signal?: AbortSignal) {
+export function runAgentStream(
+  agent: DeepAgent,
+  messages: UIMessage[],
+  signal?: AbortSignal,
+  threadId?: string
+) {
   return createUIMessageStream({
     execute: async ({ writer }) => {
       const messageId = crypto.randomUUID();
+      const activeThreadId = threadId || messageId;
 
       // Listen for client-side abort signal (e.g. Stop button click) to immediately cancel stream
       const onAbort = () => {
@@ -48,13 +54,15 @@ export function runAgentStream(agent: DeepAgent, messages: UIMessage[], signal?:
           runName: "relie-agent",
           tags: ["relie-agent", "production"],
           configurable: {
-            thread_id: messageId,
+            thread_id: activeThreadId,
           },
           metadata: {
             messageId,
+            threadId: activeThreadId,
             project: env.LANGSMITH_PROJECT,
           },
         });
+
 
         writer.write({ type: "start", messageId });
 

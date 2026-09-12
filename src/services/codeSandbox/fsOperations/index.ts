@@ -14,3 +14,5 @@ export * from "./searchFiles";
 export * from "./findFiles";
 export * from "./replaceInFiles";
 export * from "./moveFiles";
+export * from "./runTypecheck";
+export * from "./getConsoleLogs";

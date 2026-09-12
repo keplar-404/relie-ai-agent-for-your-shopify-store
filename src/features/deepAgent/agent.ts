@@ -5,10 +5,38 @@ import * as tools from "./tools";
 import { SYSTEM_PROMPT } from "./prompt";
 import { todoListMiddleware } from "langchain";
 import { MemorySaver } from "@langchain/langgraph";
+import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
+import { Pool } from "pg";
 
 export interface BuildAgentOptions {
   model?: string;
   reasoning?: string;
+}
+
+let poolInstance: Pool | undefined;
+let checkpointerInstance: PostgresSaver | MemorySaver | undefined;
+
+function getCheckpointer() {
+  if (checkpointerInstance) return checkpointerInstance;
+
+  const dbUrl = env.SUPABASE_DATABASE_URL || process.env.SUPABASE_DATABASE_URL;
+  if (dbUrl) {
+    try {
+      poolInstance = new Pool({
+        connectionString: dbUrl,
+        ssl: { rejectUnauthorized: false },
+        max: 10,
+      });
+      checkpointerInstance = new PostgresSaver(poolInstance);
+      console.log("✅ Using Supabase PostgresSaver for LangGraph checkpoints.");
+      return checkpointerInstance;
+    } catch (err) {
+      console.warn("⚠️ Failed to initialize Supabase PostgresSaver, falling back to MemorySaver:", err);
+    }
+  }
+
+  checkpointerInstance = new MemorySaver();
+  return checkpointerInstance;
 }
 
 export function buildRelieAgent({ model, reasoning }: BuildAgentOptions = {}) {
@@ -16,7 +44,7 @@ export function buildRelieAgent({ model, reasoning }: BuildAgentOptions = {}) {
     apiKey: env.OPENROUTER_API_KEY,
     model: model || "openrouter/auto",
     temperature: 0.7,
-    maxTokens: 30000, // 30,000 output tokens (~100,000-120,000 characters per turn) - maximized to fit within your key affordability limit (31,755 tokens)
+    maxTokens: 30000,
     modelKwargs: reasoning ? { reasoning: { effort: reasoning } } : {},
   });
 
@@ -25,7 +53,7 @@ export function buildRelieAgent({ model, reasoning }: BuildAgentOptions = {}) {
     virtualMode: true,
   });
 
-  const checkpointer = new MemorySaver();
+  const checkpointer = getCheckpointer();
 
   return createDeepAgent({
     name: "relie-agent",

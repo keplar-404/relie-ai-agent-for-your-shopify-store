@@ -7,10 +7,14 @@ const envSchema = z.object({
   LANGSMITH_ENDPOINT: z.string().min(1, "LANGSMITH_ENDPOINT is required"),
   LANGSMITH_API_KEY: z.string().min(4, "LANGSMITH_API_KEY is required"),
   LANGSMITH_PROJECT: z.string().min(1, "LANGSMITH_PROJECT is required"),
+  SUPABASE_DATABASE_URL: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
 });
+
 
 const parsed = envSchema.safeParse(process.env);
 
