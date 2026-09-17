@@ -1,1506 +1,547 @@
-# PDF UI Extraction Sub-Agent: System Architecture & Design Specification
-> **In-Depth Architectural Design Document for Multimodal PDF UI & Asset Extraction**  
-> *Target System: Two-Tier Sub-Agent Pipeline | Next.js, LangChain DeepAgents, Supabase Storage, Daytona Sandbox*
+# PDF Sub-Agent Tool — Architecture & Design
+
+> A single tool for the Relie deep coding agent that processes one or multiple PDF URLs, extracts text/images, generates per-page markdown summaries using an internal deep agent, uploads everything to Supabase, and saves data to user chat history.
 
 ---
 
-## 1. System Vision & Problem Domain
+## 1. System Overview
 
-When building e-commerce storefronts from client-provided PDFs (brand guidelines, Figma exports, design briefs, catalogs):
-- **Raw PDFs are opaque**: Vision models cannot directly ingest multi-page binary PDFs efficiently.
-- **Context Window Exhaustion**: Converting 10+ pages to base64 images inside a single coding agent conversation consumes 100,000+ tokens in one turn, stalling the agent and blowing API budgets.
-- **Visual Blindness**: Standard text extractors (OCR or PDF text parsers) strip away crucial layout information—spacing, visual hierarchy, button styles, alignment, and color schemes.
-- **Isolated Asset Deficit**: Cropping only tiny icons misses the overall section layout, while saving only full-page images makes it difficult to extract reusable component assets.
+### What This Is
 
-### The Architectural Solution
-A **Two-Tier Decoupled Architecture**:
-1. **Tier 1 (Extraction Sub-Agent):** An isolated, specialized pipeline that ingests the PDF, classifies pages, crops coherent UI sections, uploads high-resolution visual assets to cloud storage (Supabase), and synthesizes a structured Markdown design specification.
-2. **Tier 2 (Main Coding Agent):** The primary engineering agent (Relie AI) that receives only the clean Markdown document and user prompt, referencing permanent cloud image URLs to construct React/Tailwind components inside an isolated development sandbox.
+A **single tool** (`process_pdfs`) that the main Relie deep coding agent can call. It accepts one or multiple PDF URLs and:
 
----
+1. Fetches each PDF one at a time
+2. Splits each PDF into pages using `pdf` package
+3. Classifies each page (pure text vs. has math/images/overlays)
+4. Extracts text programmatically for pure-text pages
+5. Converts non-pure-text pages to images and uploads to Supabase
+6. Spawns an **internal deep agent** that generates a markdown summary file per PDF
+7. Uploads the markdown file to Supabase
+8. Saves PDF data to user chat history
+9. Returns the markdown file URLs to the main agent
 
-## 2. Global System Architecture
+A **second tool** (`get_pdf_page_markdown`) lets the main agent retrieve specific page markdown files on-demand.
 
-```mermaid
-graph TD
-    classDef client fill:#E0F2FE,stroke:#0284C7,stroke-width:2px;
-    classDef mechanical fill:#FEF3C7,stroke:#D97706,stroke-width:2px;
-    classDef subagent fill:#DCFCE7,stroke:#16A34A,stroke-width:2px;
-    classDef storage fill:#F3E8FF,stroke:#9333EA,stroke-width:2px;
-    classDef mainagent fill:#FFE4E6,stroke:#E11D48,stroke-width:2px;
+### Architecture Flow
 
-    User["User Request + PDF Source (URL or Base64)"]:::client
-
-    subgraph Phase1 ["Phase 1: Mechanical Ingestion & Slicing"]
-        Splitter["PDF Document Slicer (Page-by-Page)"]:::mechanical
-        StreamInspector{"Page Stream Inspector"}:::mechanical
-    end
-
-    subgraph Phase2 ["Phase 2: Page Route & Render"]
-        TextPipeline["Raw Text Extractor (0-Token Path)"]:::mechanical
-        RenderPipeline["High-DPI Viewport Renderer (PNG Buffer)"]:::mechanical
-    end
-
-    subgraph Phase3 ["Phase 3: Cognitive Extraction Sub-Agent"]
-        VisionSubAgent["Vision Synthesis Sub-Agent (Multimodal LLM)"]:::subagent
-        SectionCropper["Bounding-Box Section Cropper Engine"]:::subagent
-    end
-
-    subgraph Phase4 ["Phase 4: Cloud Persistence Layer"]
-        SupabaseStorage[("Supabase Storage CDN")]:::storage
-    end
-
-    subgraph Phase5 ["Phase 5: Main Coding Agent Execution"]
-        MainCodingAgent["Relie AI Main Coding Agent"]:::mainagent
-        DaytonaSandbox["Daytona Sandbox Runtime (/home/daytona/app)"]:::mainagent
-        LiveStorefront["Live React Storefront (Vite HMR Preview)"]:::mainagent
-    end
-
-    User -->|"POST /api/agent/pdf"| Splitter
-    Splitter --> StreamInspector
-
-    StreamInspector -->|"Pure Text (No graphics/tables)"| TextPipeline
-    StreamInspector -->|"Visual Design (Images, grids, icons, UI)"| RenderPipeline
-
-    TextPipeline -->|"Structured Text Payload"| VisionSubAgent
-    RenderPipeline -->|"Rendered PNG Viewport"| VisionSubAgent
-
-    VisionSubAgent -->|"Identify UI Sections (Navbar, Hero, Grid)"| SectionCropper
-    SectionCropper -->|"Upload Cropped Section PNGs"| SupabaseStorage
-    SupabaseStorage -->|"Permanent CDN URLs"| SectionCropper
-    SectionCropper -->|"CDN URLs & Coordinate Metadata"| VisionSubAgent
-
-    VisionSubAgent -->|"Synthesize & Upload design-spec.md"| SupabaseStorage
-    SupabaseStorage -->|"Return Markdown CDN URL"| User
-
-    User -->|"POST /api/agent (Prompt + markdownUrl)"| MainCodingAgent
-    MainCodingAgent -->|"Fetch design-spec.md"| SupabaseStorage
-    MainCodingAgent -->|"Write React Code with Hotlinked CDN URLs"| DaytonaSandbox
-    DaytonaSandbox --> LiveStorefront
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  MAIN DEEP AGENT (Relie AI)                                             │
+│  User: "Build me a homepage from these PDFs"                            │
+│  Calls: process_pdfs({ pdfUrls: ["url1", "url2"] })                     │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  TOOL: process_pdfs                                                     │
+│                                                                         │
+│  For each PDF URL:                                                      │
+│    1. Fetch PDF binary                                                  │
+│    2. Split into pages using `pdf` package                              │
+│    3. For each page:                                                    │
+│       - Classify: pure text vs. has math/images/overlays                │
+│       - If pure text: extract text programmatically                     │
+│       - If not: convert to image, upload to Supabase                    │
+│    4. Spawn internal deep agent with:                                   │
+│       - Text data (page number → text)                                  │
+│       - Image URLs (page number → Supabase URL)                         │
+│    5. Internal agent generates markdown file                            │
+│    6. Upload markdown to Supabase                                       │
+│    7. Save PDF data to user chat history                                │
+│    8. Return markdown URL                                               │
+│                                                                         │
+│  Returns: { pdfs: [{ url, markdownUrl, totalPages }] }                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  MAIN AGENT RECEIVES                                                    │
+│  - PDF markdown URLs (one per PDF)                                      │
+│  - Attached to user prompt                                              │
+│  - Can call get_pdf_page_markdown to retrieve specific pages            │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. End-to-End Sequence & Data Flow
+## 2. File Structure
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Client as Frontend / User
-    participant PDFRoute as POST /api/agent/pdf
-    participant Splitter as Page Slicer Engine
-    participant Inspector as Stream Inspector
-    participant SubAgent as PDF Sub-Agent (Vision LLM)
-    participant CropTool as Section Crop Tool
-    participant Storage as Supabase Storage CDN
-    participant MainAgent as Relie Coding Agent
-    participant Sandbox as Daytona Sandbox
-
-    Client->>PDFRoute: 1. Send { pdf: string, docId?: string }
-    PDFRoute->>Splitter: 2. Slice PDF binary into isolated single pages
-    
-    loop For Every Page (1 to N)
-        Splitter->>Inspector: 3. Inspect operator stream
-        alt Pure Text Page (Text content > threshold, 0 vector/image operators)
-            Inspector-->>PDFRoute: PageData { type: "text", text: string }
-        else Visual Layout Page (Contains XObjects, paths, grids, or graphics)
-            Inspector->>Inspector: Render viewport to 300 DPI PNG buffer in memory
-            Inspector-->>PDFRoute: PageData { type: "visual", imageBuffer: Buffer }
-        end
-    end
-
-    PDFRoute->>SubAgent: 4. Spawn Sub-Agent with PageData[] manifests
-    
-    loop For Each Visual Page
-        SubAgent->>SubAgent: Analyze visual hierarchy (identify Navbar, Hero, Cards, Footer)
-        SubAgent->>CropTool: 5. Request crops: ["Navbar section", "Hero section", "Product grid"]
-        CropTool->>CropTool: Perform precise bounding-box extraction
-        CropTool->>Storage: 6. Upload cropped section PNGs
-        Storage-->>CropTool: Return permanent CDN URLs
-        CropTool-->>SubAgent: Return section labels + CDN URLs
-    end
-
-    SubAgent->>SubAgent: 7. Assemble Unified Markdown (Text + Component Section Images)
-    SubAgent->>Storage: 8. Upload final "design-spec.md"
-    Storage-->>SubAgent: Return designSpecUrl
-    SubAgent-->>PDFRoute: 9. Execution summary { markdownUrl, totalPages, summary }
-    PDFRoute-->>Client: 10. HTTP 200 { success: true, markdownUrl, summary }
-
-    Note over Client, MainAgent: Handoff to Coding Phase
-    Client->>MainAgent: 11. POST /api/agent { prompt, markdownUrl, sandboxId }
-    MainAgent->>Storage: 12. Fetch design-spec.md
-    MainAgent->>Sandbox: 13. Write React components using hotlinked image URLs
-    Sandbox-->>Client: 14. Live storefront renders with original visual fidelity
+```
+src/
+├── features/deepAgent/
+│   ├── agent.ts                          # Main Relie deep agent
+│   ├── prompt.ts                         # Main agent system prompt
+│   └── tools/
+│       ├── index.ts                      # Tool registry
+│       └── pdfTools/
+│           ├── index.ts                  # PDF tools barrel
+│           ├── processPdfsTool.ts        # Main PDF processing tool
+│           └── getPdfPageMarkdownTool.ts # Retrieve specific page markdown
+│
+└── services/
+    └── pdfProcessor/                     # PDF processing service
+        ├── index.ts                      # Main orchestrator
+        ├── fetcher.ts                    # Fetch PDF from URL
+        ├── splitter.ts                   # Split PDF into pages
+        ├── classifier.ts                 # Classify page type
+        ├── textExtractor.ts              # Extract text from pure-text pages
+        ├── imageRenderer.ts              # Convert non-text pages to images
+        ├── uploader.ts                   # Upload to Supabase
+        ├── markdownAgent.ts              # Internal deep agent for markdown generation
+        └── chatHistorySaver.ts           # Save PDF data to user chat history
 ```
 
 ---
 
-## 4. Architectural Decomposition
+## 3. Database Design
 
-### 4.1 Component Responsibility Matrix
+### 3.1 Tables
 
-| Subsystem | Primary Responsibility | Input Contract | Output Contract | Storage Strategy |
-|---|---|---|---|---|
-| **Mechanical Slicer** | Splits raw multi-page PDF into independent memory buffers | PDF ArrayBuffer (URL / Base64) | Isolated Single-Page Buffers | In-Memory (Zero Disk Footprint) |
-| **Stream Inspector** | Deterministic binary analysis to differentiate plain text from visual designs | Single-Page Buffer | Classification: `text` vs. `visual` | In-Memory |
-| **Viewport Renderer** | Renders complex PDF pages into high-resolution PNG viewports | Visual Page Buffer | Raw PNG Buffer (Base64) | In-Memory (Not uploaded to cloud) |
-| **Section Crop Tool** | Identifies and crops bounded UI sections (Navbar, Hero, Grid) | PNG Buffer + Section Labels | Bounded PNG Buffers | Supabase Storage (`/extracted/`) |
-| **Extraction Sub-Agent** | Cognitive UI analysis, semantic structuring, and Markdown generation | Text pages + Section CDN URLs | Unified `design-spec.md` | Supabase Storage (`/designs/`) |
-| **Main Coding Agent** | Translates Markdown spec into modular React components | User prompt + `markdownUrl` | React/Tailwind Source Code | Daytona Sandbox (`/home/daytona/app`) |
+**`pdf_documents`** — Stores PDF metadata
+- `id` (UUID, primary key)
+- `project_id` (UUID, foreign key to projects)
+- `user_id` (UUID, foreign key to auth.users)
+- `chat_id` (TEXT) — Links PDF to specific chat/thread
+- `pdf_url` (TEXT) — Original PDF URL
+- `doc_id` (TEXT, unique) — Internal document identifier
+- `original_filename` (TEXT)
+- `total_pages` (INTEGER)
+- `markdown_url` (TEXT) — Supabase URL of markdown summary
+- `status` (TEXT) — processing | ready | failed
+- `error_message` (TEXT)
+- `created_at` (TIMESTAMPTZ)
+- `updated_at` (TIMESTAMPTZ)
+
+**`pdf_pages`** — Stores per-page data
+- `id` (UUID, primary key)
+- `pdf_document_id` (UUID, foreign key to pdf_documents)
+- `page_number` (INTEGER)
+- `page_type` (TEXT) — text | visual
+- `text_content` (TEXT) — For pure-text pages
+- `image_url` (TEXT) — For visual pages
+- `created_at` (TIMESTAMPTZ)
+- Unique constraint on (pdf_document_id, page_number)
+
+**`chat_messages`** — Stores chat history including PDF attachments
+- `id` (UUID, primary key)
+- `chat_id` (TEXT)
+- `user_id` (UUID, foreign key to auth.users)
+- `role` (TEXT) — user | assistant | system | attachment
+- `content` (TEXT) — JSON for attachments
+- `created_at` (TIMESTAMPTZ)
+
+### 3.2 Row Level Security (RLS)
+
+- Users can only view/insert/update/delete their own PDF documents
+- Users can only view PDF pages belonging to their own PDF documents
+- Users can only view/insert their own chat messages
+
+### 3.3 Storage Buckets
+
+**`pdfs`** (public read, authenticated write)
+- Path pattern: `{user_id}/{project_id}/{doc_id}/...`
+- Files: `page-001.png`, `page-002.png`, `markdown.md`
+
+**`assets`** (public read, authenticated write) — already exists
 
 ---
 
-## 5. Detailed Step-by-Step Pipeline Mechanics
+## 4. PDF Processing Service Design
 
-```mermaid
-flowchart LR
-    A["Raw PDF"] --> B["1. Slicing"]
-    B --> C["2. Classification"]
-    C --> D1["3A. Pure Text Path"]
-    C --> D2["3B. Visual Page Path"]
-    D1 --> E["4. Cognitive Synthesis"]
-    D2 --> F["3C. Section Cropping"]
-    F --> G["3D. Supabase CDN Upload"]
-    G --> E
-    E --> H["5. Final Markdown Spec"]
-    H --> I["6. Coding Agent Handoff"]
+### 4.1 `fetcher.ts`
+
+**Purpose:** Fetch a PDF from a URL and return as binary buffer.
+
+**Input:** PDF URL (string)
+**Output:** PDF buffer (Buffer)
+**Error handling:** Throw error if fetch fails
+
+### 4.2 `splitter.ts`
+
+**Purpose:** Split a PDF into individual page buffers.
+
+**Input:** PDF buffer
+**Output:** Array of `{ pageNumber, pdfBuffer }`
+**Library:** `pdf-lib` (PDFDocument.copyPages)
+
+### 4.3 `classifier.ts`
+
+**Purpose:** Classify each page as "text" or "visual".
+
+**Input:** PDF buffer, page number
+**Output:** `{ pageNumber, type, hasMath, hasImages, hasTextOverlay, textLength }`
+
+**Classification Logic:**
+- **Pure text:** textLength > 50, no images, no paths, no math
+- **Visual:** has images, math, text overlays, or complex graphics
+
+**Detection Methods:**
+- Text operators: `Tj`, `TJ`, `Tm`, `Td`, `T*`, `BT`, `ET`
+- Image operators: `Do`, `BI`, `EI`, `ID`
+- Path operators: `m`, `l`, `c`, `v`, `y`, `h`, `re`, `S`, `s`, `f`, `F`, `B`, `B*`
+- Math symbols: `∫∑∏√∂∇±×÷≠≈∞πθαβγδ`
+
+### 4.4 `textExtractor.ts`
+
+**Purpose:** Extract text from pure-text pages programmatically.
+
+**Input:** PDF buffer, page number
+**Output:** Text string
+**Library:** `pdf-parse`
+
+**Note:** Only called for pages classified as "text". Text is saved as a string variable with page number.
+
+### 4.5 `imageRenderer.ts`
+
+**Purpose:** Convert non-pure-text pages to PNG images.
+
+**Input:** PDF buffer, page number
+**Output:** `{ pageNumber, pngBuffer, width, height }`
+**Library:** `pdfjs-dist`
+**DPI:** 200 (scale = 200/72)
+
+### 4.6 `uploader.ts`
+
+**Purpose:** Upload files to Supabase Storage.
+
+**Input:** userId, projectId, docId, filename, buffer, contentType
+**Output:** `{ url, path }`
+**Bucket:** `pdfs`
+**Path pattern:** `{userId}/{projectId}/{docId}/{filename}`
+
+### 4.7 `markdownAgent.ts`
+
+**Purpose:** Internal deep agent that generates markdown summary file.
+
+**Input:** PDF URL, array of `{ pageNumber, type, text?, imageUrl? }`
+**Output:** Markdown string
+
+**System Prompt:**
+```
+You are a PDF document analyzer. Your job is to create a comprehensive markdown summary file for a PDF document.
+
+You will receive:
+1. Text content extracted from pure-text pages (with page numbers)
+2. Image URLs for visual pages (with page numbers)
+
+Your task:
+1. Review all the text content and image URLs
+2. For each page, create a section in the markdown file with:
+   - Page number as heading
+   - Text content (if available)
+   - Image link (if available)
+3. At the end, create a SHORT summary (10-15 lines) describing what each page contains
+
+Output format:
+
+# PDF Document Summary
+
+## Page 1
+[Text content if available]
+![Page 1](image-url-if-available)
+
+## Page 2
+[Text content if available]
+![Page 2](image-url-if-available)
+
+...
+
+## Overall Summary
+[10-15 lines describing what each page contains with image links]
 ```
 
-### Step 1: Ingestion & Slicing
-- **Mechanism:** Ingests the PDF input as an in-memory binary `ArrayBuffer` from an HTTP/HTTPS URL or Base64 payload.
-- **Page Isolation:** Slices the document into isolated single-page representations.
-- **Why In-Memory:** Prevents writing temporary files to the server's local disk, avoiding concurrent user collisions and container disk fill-up.
+**Model:** Vision LLM (e.g., google/gemini-2.5-flash)
 
-### Step 2: Deterministic Classification (Text vs. Visual)
-Rather than wasting vision tokens on every single page, an inspection algorithm examines the internal PDF operator table:
-- **Pure Text Criteria:**
-  - Presence of standard text operators (`showText`, `showSpans`).
-  - Absence of raster image XObjects (`paintImageXObject`, `paintInlineImageXObject`).
-  - Absence of vector path operations (used for borders, custom cards, or graphical backgrounds).
-  - Text length exceeds minimal threshold (>50 characters).
-- **Visual Design Criteria:**
-  - Any page containing embedded images, complex vector strokes, color fills, layout grids, or diagrams.
-  - Pages with low extracted text density but significant graphical content.
+### 4.8 `chatHistorySaver.ts`
 
-### Step 3: Viewport Rendering & Section Cropping
-- **Viewport Rendering:** Visual pages are rendered into a high-DPI viewport PNG buffer in memory.
-- **In-Memory Guardrail:** Full-page raw screenshots are **not** immediately dumped into Supabase Storage. They remain in memory to avoid polluting cloud buckets with disposable intermediate artifacts.
-- **Section Extraction:** The Vision Sub-Agent inspects the viewport and directs the cropping engine to isolate distinct, functional UI components:
-  1. *Navigation / Header Section* (Logo, search bar, navigation links, cart triggers).
-  2. *Hero Section* (Primary banner, headline copy, promotional badge, call-to-action button).
-  3. *Featured Product Section* (Card grid layout, pricing typography, hover overlays).
-  4. *Testimonial / Social Proof Section* (Review stars, customer quotes, brand badges).
-  5. *Footer Section* (Multi-column links, newsletter subscription, legal notices).
-- **Persistence:** Only these cropped, functional UI section images are persisted to Supabase Storage, generating permanent public CDN URLs.
+**Purpose:** Save PDF data to user chat history.
 
-### Step 4: Cognitive Markdown Synthesis
-The Sub-Agent synthesizes a unified, page-by-page Markdown document (`design-spec.md`) that maps 1-to-1 with the storefront component hierarchy:
-- Text-only pages are formatted with semantic headings, structured lists, and markdown tables.
-- Visual pages are structured into component sections, each containing:
-  - Exact component name (e.g. `Navbar.tsx`, `HeroBanner.tsx`).
-  - Extracted copy, typography styling, and color hex codes.
-  - Permanent CDN image link of the visual section (`![Navbar Design](https://supabase.../navbar.png)`).
+**Input:** userId, projectId, chatId, pdfUrl, docId, markdownUrl, totalPages, originalFilename
+**Output:** void
 
-### Step 5: Handoff to Main Coding Agent
-- The finalized `design-spec.md` is uploaded to Supabase Storage.
-- The sub-agent endpoint returns a lightweight payload:
-  ```json
-  {
-    "success": true,
-    "markdownUrl": "https://xyz.supabase.co/.../design-spec.md",
-    "totalPages": 5,
-    "summary": "5-page minimalist jewelry storefront spec featuring sticky header, hero carousel, 4-column product grid, and newsletter footer."
-  }
-  ```
-- The client injects the `markdownUrl` and `summary` into the Main Coding Agent's context.
-- **The Main Agent never processes raw PDF data.** It fetches the Markdown document, opens the Daytona sandbox, and implements clean React code that hotlinks the CDN assets directly.
+**Saves to:**
+1. `pdf_documents` table with `chat_id` linking to specific chat
+2. `chat_messages` table as attachment message
+
+### 4.9 `index.ts` (Main Orchestrator)
+
+**Purpose:** Orchestrate the entire PDF processing pipeline.
+
+**Input:** `{ pdfUrl, userId, projectId, chatId, originalFilename? }`
+**Output:** `{ docId, pdfUrl, markdownUrl, totalPages }`
+
+**Pipeline Steps:**
+1. Fetch PDF
+2. Split into pages
+3. Classify each page
+4. Extract text from text pages
+5. Convert visual pages to images and upload
+6. Build page data (text + image URLs)
+7. Spawn internal deep agent to generate markdown
+8. Upload markdown to Supabase
+9. Save per-page data to database
+10. Save PDF data to user chat history
+11. Return markdown URL
+
+**Multi-PDF Handling:** Process PDFs sequentially (one at a time), continue on error.
 
 ---
 
-## 6. Data Contracts & Payload Schemas
+## 5. Main Tool Design
 
-### 6.1 Sub-Agent Route Request Contract (`POST /api/agent/pdf`)
+### 5.1 `processPdfsTool`
+
+**Purpose:** Main entry point for the main Relie deep agent to process PDFs.
+
+**Input Schema:**
 ```json
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "PdfSubAgentRequest",
-  "type": "object",
-  "properties": {
-    "pdf": {
-      "type": "string",
-      "description": "Publicly reachable HTTP/HTTPS URL or Base64 data string of the PDF."
-    },
-    "docId": {
-      "type": "string",
-      "description": "Optional unique document identifier for organizing storage assets."
-    }
-  },
-  "required": ["pdf"]
+  "pdfUrls": ["string"],      // Array of PDF URLs
+  "projectId": "string",      // Project ID
+  "chatId": "string"          // Chat/thread ID for chat history
 }
 ```
 
-### 6.2 Intermediate Page Manifest (Internal Memory Pipeline)
+**Output Schema:**
 ```json
 {
-  "docId": "doc_1726589000",
-  "totalPages": 2,
-  "pages": [
+  "success": true,
+  "pdfs": [
     {
-      "pageNumber": 1,
-      "classification": "text",
-      "textContent": "Store Policies and Shipping Details..."
-    },
-    {
-      "pageNumber": 2,
-      "classification": "visual",
-      "viewportBase64": "data:image/png;base64,iVBORw0KGgo...",
-      "detectedSections": [
-        {
-          "name": "Header & Navbar",
-          "box2d": [0, 0, 180, 1000],
-          "storageUrl": "https://xyz.supabase.co/storage/v1/object/public/assets/extracted/navbar-1.png"
-        },
-        {
-          "name": "Hero Banner",
-          "box2d": [185, 0, 650, 1000],
-          "storageUrl": "https://xyz.supabase.co/storage/v1/object/public/assets/extracted/hero-1.png"
-        }
-      ]
+      "pdfUrl": "string",
+      "docId": "string",
+      "markdownUrl": "string",
+      "totalPages": "number"
     }
   ]
 }
 ```
 
-### 6.3 Sub-Agent Route Response Contract
+**Authentication:**
+- Verify user is authenticated
+- Verify user owns the project
+
+**Behavior:**
+- Calls `processPdfs` service with all PDF URLs
+- Returns markdown URLs to main agent
+
+### 5.2 `getPdfPageMarkdownTool`
+
+**Purpose:** Retrieve markdown content for a specific page from a PDF's markdown file.
+
+**Input Schema:**
 ```json
 {
-  "success": true,
-  "documentId": "doc_1726589000",
-  "markdownUrl": "https://xyz.supabase.co/storage/v1/object/public/assets/designs/doc_1726589000/design-spec.md",
-  "totalPages": 2,
-  "summary": "E-commerce landing page design with sticky navigation bar and hero promotion.",
-  "extractedSectionsCount": 2
+  "markdownUrl": "string",    // Supabase URL of markdown file
+  "pageNumber": "number"      // 1-based page number
 }
 ```
+
+**Output:** Markdown string for the specific page
+
+**Behavior:**
+- Fetches markdown file from Supabase
+- Extracts the section for the requested page number
+- Returns the page section
+
+### 5.3 `index.ts` (Barrel Export)
+
+**Purpose:** Export both PDF tools as a single object.
+
+**Exports:**
+- `process_pdfs` tool
+- `get_pdf_page_markdown` tool
 
 ---
 
-## 7. Component Mapping: Markdown Specification to React Code
+## 6. Main Agent Integration Design
 
-This table illustrates how the Sub-Agent's Markdown output directly drives the Main Coding Agent's component construction inside the Daytona sandbox:
+### 6.1 Tool Registry Update
 
-```
-┌────────────────────────────────────────────────────────┐
-│  design-spec.md (Generated by Sub-Agent)               │
-│                                                        │
-│  ## 1. Header Navigation (`Header.tsx`)                │
-│  ![Navbar](https://supabase.../navbar.png)             │
-│  - Background: #FFFFFF, Sticky top                     │
-│  - Links: Home, Catalog, About                         │
-│                                                        │
-│  ## 2. Hero Section (`HeroSection.tsx`)                │
-│  ![Hero](https://supabase.../hero.png)                 │
-│  - Headline: "Modern Craftsmanship"                    │
-│  - CTA: "Shop Collection"                              │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           │ Coding Agent reads spec
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│  Daytona Sandbox: /home/daytona/app/src/App.tsx        │
-│                                                        │
-│  export default function App() {                       │
-│    return (                                            │
-│      <main className="min-h-screen bg-white">          │
-│        <Header />                                      │
-│        <HeroSection />                                 │
-│      </main>                                           │
-│    );                                                  │
-│  }                                                     │
-│                                                        │
-│  // Live preview updates immediately via Vite HMR      │
-└────────────────────────────────────────────────────────┘
-```
-
----
-
-## 8. Failure Modes, Resilience & Edge Cases
-
-```mermaid
-stateDiagram-v2
-    [*] --> Ingestion
-    Ingestion --> SlicingFailed: Corrupt / Password-Protected PDF
-    SlicingFailed --> ReturnError: HTTP 422 (Unprocessable Entity)
-    
-    Ingestion --> Inspection
-    Inspection --> ClassificationFailed: Malformed Operator Table
-    ClassificationFailed --> FallbackVisual: Fallback: Treat as Visual Viewport
-    
-    FallbackVisual --> SectionCropping
-    Inspection --> SectionCropping
-    
-    SectionCropping --> CropFailed: Ambiguous / Missing Bounding Boxes
-    CropFailed --> FallbackFullPage: Fallback: Save Full Page Viewport to CDN
-    
-    SectionCropping --> MarkdownAssembly
-    FallbackFullPage --> MarkdownAssembly
-    
-    MarkdownAssembly --> StorageFailed: Supabase CDN Timeout / Auth Error
-    StorageFailed --> InlineFallback: Fallback: Return raw markdown text in HTTP response
-    
-    MarkdownAssembly --> Complete: Upload Success
-    Complete --> [*]
-```
-
-### 1. Corrupted or Password-Protected PDFs
-- **Symptom:** `PDFDocument.load()` throws encryption or format exception.
-- **Handling:** Immediately intercept at the mechanical layer; return structured error `{ success: false, error: "The provided document is password-protected or not a valid PDF." }` with HTTP 422. Avoid invoking any LLMs.
-
-### 2. Ambiguous or Failed Section Cropping
-- **Symptom:** The vision model fails to detect tight bounding boxes for individual components.
-- **Handling:** The cropping engine automatically falls back to saving the full page image viewport into Supabase Storage, ensuring the main coding agent still receives a visual reference.
-
-### 3. Large Multi-Page Documents (20+ Pages)
-- **Symptom:** Sequential processing causes API route timeouts (HTTP 504).
-- **Handling:** 
-  - Pages are chunked into parallel batches of 5.
-  - Text-only pages resolve instantaneously (under 10ms per page).
-  - Visual pages are processed concurrently with `Promise.allSettled()`.
-
-### 4. Supabase Storage Outage or Unset Credentials
-- **Symptom:** Cloud storage upload returns network failure or permission error.
-- **Handling:** The system degrades gracefully by returning the synthesized Markdown directly within the JSON response body, allowing the workflow to proceed without hard crashing.
-
----
-
-## 9. Architectural Advantages
-
-1. **Context Window Protection**: The main coding agent remains fast, responsive, and token-efficient because it only ever handles a concise Markdown file and user prompts.
-2. **True Visual Fidelity**: By capturing and persisting coherent UI sections rather than disjointed icons, the coding agent accurately reproduces layout hierarchy, typography weight, and component spacing.
-3. **Zero Local Sandbox Bloat**: Assets live in the Supabase Storage CDN and are hotlinked directly in the React components, eliminating complex file sync operations between the server and Daytona sandbox.
-4. **Decoupled Testability**: The PDF extraction endpoint can be developed, tested, and benchmarked completely independently of the frontend chat interface and Daytona sandbox.
-
----
-
-## 10. Refined Architecture: Indexed + Lazy Fetch Pattern
-
-> **Note:** This section refines the original two-tier design with an **indexed + lazy fetch** pattern that significantly reduces cost and context bloat while enabling follow-up questions.
-
-### 10.1 Why Refine?
-
-The original design (Sections 1–9) has three limitations:
-1. **One-shot, no iteration**: User can't ask "what about page 7?" after the initial extraction.
-2. **Vision LLM on every page**: Expensive and slow for large PDFs.
-3. **Flat Markdown**: Main agent has to grep through a single document to find specific sections.
-
-### 10.2 The Refined Solution
-
-Replace the single `design-spec.md` with:
-- **Per-page PNGs** uploaded to Supabase (one per visual page)
-- **A lightweight `index.md`** with one-line summaries per page
-- **Three lazy tools** the main agent calls on-demand:
-  - `read_pdf_index` — fetch the table of contents
-  - `read_pdf_page` — describe a specific page (vision LLM server-side)
-  - `extract_pdf_sections` — crop sections from a page (vision LLM + sharp + upload)
-
-### 10.3 Cost & Context Comparison (20-page PDF)
-
-| Approach | LLM Cost | Main Agent Context | Time |
-|---|---|---|---|
-| **Original (one-shot)** | ~$0.66 | 50,000+ tokens | 30–60s |
-| **Refined (indexed + lazy)** | ~$0.018 | ~3,700 tokens | ~13s |
-| **Savings** | **~37x cheaper** | **~13x less bloat** | **~3x faster** |
-
-### 10.4 Refined Data Flow
+Add PDF tools to the main agent's tool registry:
 
 ```
-User uploads PDF in chat
-  ↓
-POST /api/agent (detects PDF)
-  ↓
-POST /api/agent/pdf/index (internal call)
-  ↓
-┌─────────────────────────────────────────────────────────────┐
-│  PDF Indexer (3–5s, no vision LLM)                          │
-│  1. Slice PDF into pages (pdf.js)                           │
-│  2. Classify each page (text vs visual) by operator inspect │
-│  3. Extract text from text pages (pdf.js)                   │
-│  4. Render visual pages to PNG @ 200 DPI (pdf.js)           │
-│  5. Summarize text pages (text-only LLM, ~50 tok/page)      │
-│  6. Upload index.md + page PNGs to Supabase                 │
-│  7. Save metadata to pdf_documents table                    │
-└─────────────────────────────────────────────────────────────┘
-  ↓
-Returns: { indexUrl, pageUrls[], summaries[], docId }
-  ↓
-Inject into user message as attachment (~500 tokens)
-  ↓
-Main Agent (Relie AI) — context: ~2,500 tokens
-  ↓
-Calls sub-agent tools as needed:
-  - read_pdf_index → fetch index.md
-  - read_pdf_page → server-side vision LLM describes page
-  - extract_pdf_sections → server-side vision LLM + crop + upload
-  ↓
-Writes React code using CDN URLs
-  ↓
-Daytona sandbox renders live preview
-```
-
-### 10.5 Main Agent Context (What Relie AI Sees)
-
-```
-System: "You are Relie AI..." (2000 tokens)
-+
-User: "Build me a homepage from this PDF"
-+
-📎 PDF Document (20 pages)
-   Index: https://...supabase.co/.../index.md
-   Page Summaries:
-   1. Brand guidelines — colors, typography, logo usage
-   2. Visual design page (full image at page-002.png)
-   3. Visual design page (full image at page-003.png)
-   ...
-```
-
-**Total: ~2,500 tokens** (vs. 100,000+ in the original design)
-
-### 10.6 What NEVER Enters Main Agent Context
-
-- ❌ Raw PDF bytes
-- ❌ Base64-encoded page images
-- ❌ Full vision LLM outputs
-- ❌ Cropped image buffers
-
-### 10.7 What DOES Enter (Tiny)
-
-- ✅ `indexUrl` (1 string)
-- ✅ Per-page summaries (~10 words each)
-- ✅ Page descriptions (~50 words when requested)
-- ✅ Section URLs (~1 string each when requested)
-
----
-
-## 11. Database Schema (Supabase Postgres)
-
-### 11.1 New Tables
-
-```sql
--- =====================================================
--- PDF Documents Table
--- =====================================================
-CREATE TABLE pdf_documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  doc_id TEXT NOT NULL UNIQUE,
-  original_filename TEXT NOT NULL,
-  total_pages INTEGER NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  index_url TEXT NOT NULL,
-  page_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
-  summaries JSONB NOT NULL DEFAULT '[]'::jsonb,
-  status TEXT NOT NULL DEFAULT 'indexing' CHECK (status IN ('indexing', 'ready', 'failed')),
-  error_message TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_pdf_documents_project_id ON pdf_documents(project_id);
-CREATE INDEX idx_pdf_documents_user_id ON pdf_documents(user_id);
-CREATE INDEX idx_pdf_documents_doc_id ON pdf_documents(doc_id);
-CREATE INDEX idx_pdf_documents_status ON pdf_documents(status);
-
--- =====================================================
--- Chat Threads Table
--- =====================================================
-CREATE TABLE chat_threads (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  thread_id TEXT NOT NULL UNIQUE,
-  title TEXT,
-  messages JSONB NOT NULL DEFAULT '[]'::jsonb,
-  pdf_document_id UUID REFERENCES pdf_documents(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_chat_threads_project_id ON chat_threads(project_id);
-CREATE INDEX idx_chat_threads_user_id ON chat_threads(user_id);
-CREATE INDEX idx_chat_threads_thread_id ON chat_threads(thread_id);
-CREATE INDEX idx_chat_threads_pdf_document_id ON chat_threads(pdf_document_id);
-
--- =====================================================
--- Row Level Security (RLS)
--- =====================================================
-ALTER TABLE pdf_documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE chat_threads ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view their own PDF documents"
-  ON pdf_documents FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert their own PDF documents"
-  ON pdf_documents FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update their own PDF documents"
-  ON pdf_documents FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete their own PDF documents"
-  ON pdf_documents FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view their own chat threads"
-  ON chat_threads FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert their own chat threads"
-  ON chat_threads FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update their own chat threads"
-  ON chat_threads FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete their own chat threads"
-  ON chat_threads FOR DELETE USING (auth.uid() = user_id);
-
--- =====================================================
--- Triggers
--- =====================================================
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER update_pdf_documents_updated_at
-  BEFORE UPDATE ON pdf_documents
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_chat_threads_updated_at
-  BEFORE UPDATE ON chat_threads
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-```
-
-### 11.2 Storage Buckets
-
-1. **`pdfs`** (public read, authenticated write)
-   - Path: `{user_id}/{project_id}/{doc_id}/...`
-   - Files: `index.md`, `page-001.png`, `page-002.png`, etc.
-
-2. **`assets`** (public read, authenticated write) — already exists
-   - Path: `{user_id}/{project_id}/extracted/...`
-   - Files: `logo-2.png`, `hero-2.png`, etc.
-
----
-
-## 12. File Structure (What to Create)
-
-```
-src/
-├── app/api/agent/
-│   ├── route.ts                          # UPDATE: detect PDF, call indexer
-│   └── pdf/
-│       └── index/
-│           └── route.ts                  # NEW: PDF indexer endpoint
-│
-├── features/deepAgent/
-│   ├── agent.ts                          # UPDATE: add pdfTools to tool list
-│   ├── prompt.ts                         # UPDATE: add PDF tool descriptions
-│   └── tools/
-│       ├── index.ts                      # UPDATE: export pdfTools
-│       └── pdfTools/                     # NEW: PDF sub-agent tools
-│           ├── index.ts
-│           ├── readPdfIndexTool.ts
-│           ├── readPdfPageTool.ts
-│           └── extractPdfSectionsTool.ts
-│
-└── services/
-    └── pdfIndexer/                       # NEW: PDF indexing service
-        ├── index.ts                      # Main orchestrator
-        ├── slicer.ts                     # pdf.js page slicing
-        ├── classifier.ts                 # Text vs visual detection
-        ├── renderer.ts                   # PNG rendering
-        ├── summarizer.ts                 # Text-only LLM summaries
-        └── uploader.ts                   # Supabase upload
-```
-
----
-
-## 13. Implementation: PDF Indexer Service
-
-### 13.1 `src/services/pdfIndexer/slicer.ts`
-
-```typescript
-import { PDFDocument } from "pdf-lib";
-
-export interface PageData {
-  pageNumber: number;
-  type: "text" | "visual";
-  textContent?: string;
-  imageBuffer?: Buffer;
-  width?: number;
-  height?: number;
-}
-
-export async function slicePdf(pdfBuffer: Buffer): Promise<PageData[]> {
-  const pdfDoc = await PDFDocument.load(pdfBuffer);
-  const pages: PageData[] = [];
-
-  for (let i = 0; i < pdfDoc.getPageCount(); i++) {
-    const page = pdfDoc.getPage(i);
-    const { width, height } = page.getSize();
-    pages.push({
-      pageNumber: i + 1,
-      type: "visual",
-      width,
-      height,
-    });
-  }
-
-  return pages;
-}
-```
-
-### 13.2 `src/services/pdfIndexer/classifier.ts`
-
-```typescript
-import { PDFDocument, PDFContentStream } from "pdf-lib";
-
-const TEXT_OPERATORS = ["Tj", "TJ", "Tm", "Td", "T*", "BT", "ET"];
-const IMAGE_OPERATORS = ["Do", "BI", "EI", "ID"];
-const PATH_OPERATORS = ["m", "l", "c", "v", "y", "h", "re", "S", "s", "f", "F", "B", "B*"];
-
-export interface ClassificationResult {
-  pageNumber: number;
-  type: "text" | "visual";
-  textLength: number;
-  hasImages: boolean;
-  hasPaths: boolean;
-}
-
-export async function classifyPage(
-  pdfDoc: PDFDocument,
-  pageIndex: number
-): Promise<ClassificationResult> {
-  const page = pdfDoc.getPage(pageIndex);
-  const contentStream = page.node.Contents();
-
-  let textLength = 0;
-  let hasImages = false;
-  let hasPaths = false;
-
-  if (contentStream) {
-    const stream = contentStream as PDFContentStream;
-    const operators = stream.operators || [];
-
-    for (const op of operators) {
-      const opName = op.constructor.name;
-      if (TEXT_OPERATORS.includes(opName)) {
-        if (opName === "Tj" && op.args?.[0]) {
-          textLength += String(op.args[0]).length;
-        }
-      }
-      if (IMAGE_OPERATORS.includes(opName)) hasImages = true;
-      if (PATH_OPERATORS.includes(opName)) hasPaths = true;
-    }
-  }
-
-  const type: "text" | "visual" =
-    textLength > 50 && !hasImages && !hasPaths ? "text" : "visual";
-
-  return { pageNumber: pageIndex + 1, type, textLength, hasImages, hasPaths };
-}
-
-export async function classifyAllPages(
-  pdfBuffer: Buffer
-): Promise<ClassificationResult[]> {
-  const pdfDoc = await PDFDocument.load(pdfBuffer);
-  const results: ClassificationResult[] = [];
-  for (let i = 0; i < pdfDoc.getPageCount(); i++) {
-    results.push(await classifyPage(pdfDoc, i));
-  }
-  return results;
-}
-```
-
-### 13.3 `src/services/pdfIndexer/renderer.ts`
-
-```typescript
-import { PDFDocument } from "pdf-lib";
-
-export interface RenderedPage {
-  pageNumber: number;
-  pngBuffer: Buffer;
-  width: number;
-  height: number;
-}
-
-export async function renderPageToPng(
-  pdfBuffer: Buffer,
-  pageNumber: number
-): Promise<RenderedPage> {
-  const pdfjs = await import("pdfjs-dist");
-  const loadingTask = pdfjs.getDocument({ data: pdfBuffer });
-  const pdf = await loadingTask.promise;
-  const page = await pdf.getPage(pageNumber);
-
-  const scale = 200 / 72; // 200 DPI
-  const viewport = page.getViewport({ scale });
-  const canvasFactory = new pdfjs.NodeCanvasFactory();
-  const canvasContext = canvasFactory.create(viewport.width, viewport.height);
-
-  await page.render({ canvasContext, viewport, canvasFactory }).promise;
-  const pngBuffer = canvasContext.canvas.toBuffer("image/png");
-
-  return { pageNumber, pngBuffer, width: viewport.width, height: viewport.height };
-}
-
-export async function renderVisualPages(
-  pdfBuffer: Buffer,
-  pageNumbers: number[]
-): Promise<RenderedPage[]> {
-  const pdfDoc = await PDFDocument.load(pdfBuffer);
-  const renderPromises = pageNumbers.map(async (pageNum) => {
-    const page = pdfDoc.getPage(pageNum - 1);
-    const { width, height } = page.getSize();
-    return renderPageToPng(pdfBuffer, pageNum);
-  });
-  return Promise.all(renderPromises);
-}
-```
-
-### 13.4 `src/services/pdfIndexer/summarizer.ts`
-
-```typescript
-import { ChatOpenRouter } from "@langchain/openrouter";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { env } from "@/lib/env";
-
-export interface PageSummary {
-  pageNumber: number;
-  type: "text" | "visual";
-  summary: string;
-}
-
-export async function summarizeTextPage(
-  textContent: string,
-  pageNumber: number
-): Promise<PageSummary> {
-  const model = new ChatOpenRouter({
-    apiKey: env.OPENROUTER_API_KEY,
-    model: "google/gemini-2.5-flash",
-    temperature: 0.3,
-  });
-
-  const response = await model.invoke([
-    new SystemMessage(
-      "You are a design document analyzer. Summarize the given text in 1 sentence (max 20 words) for a design specification index."
-    ),
-    new HumanMessage(textContent),
-  ]);
-
-  return {
-    pageNumber,
-    type: "text",
-    summary: response.content.toString().trim(),
-  };
-}
-
-export function createVisualPageSummary(
-  pageNumber: number,
-  pageUrl: string
-): PageSummary {
-  return {
-    pageNumber,
-    type: "visual",
-    summary: `Visual design page (full image at ${pageUrl})`,
-  };
-}
-
-export async function summarizeAllPages(
-  textPages: { pageNumber: number; textContent: string }[],
-  visualPageUrls: { pageNumber: number; pageUrl: string }[]
-): Promise<PageSummary[]> {
-  const summaries: PageSummary[] = [];
-  const textSummaries = await Promise.all(
-    textPages.map((page) => summarizeTextPage(page.textContent, page.pageNumber))
-  );
-  summaries.push(...textSummaries);
-  const visualSummaries = visualPageUrls.map((page) =>
-    createVisualPageSummary(page.pageNumber, page.pageUrl)
-  );
-  summaries.push(...visualSummaries);
-  summaries.sort((a, b) => a.pageNumber - b.pageNumber);
-  return summaries;
-}
-```
-
-### 13.5 `src/services/pdfIndexer/uploader.ts`
-
-```typescript
-import { createClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
-
-const supabase = createClient(
-  env.NEXT_PUBLIC_SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-export interface UploadResult {
-  url: string;
-  path: string;
-}
-
-export async function uploadToStorage(
-  userId: string,
-  projectId: string,
-  docId: string,
-  filename: string,
-  buffer: Buffer,
-  contentType: string
-): Promise<UploadResult> {
-  const path = `${userId}/${projectId}/${docId}/${filename}`;
-  const { data, error } = await supabase.storage
-    .from("pdfs")
-    .upload(path, buffer, { contentType, upsert: true });
-
-  if (error) throw new Error(`Upload failed: ${error.message}`);
-
-  const { data: urlData } = supabase.storage.from("pdfs").getPublicUrl(data.path);
-  return { url: urlData.publicUrl, path: data.path };
-}
-
-export async function uploadMultipleFiles(
-  userId: string,
-  projectId: string,
-  docId: string,
-  files: { filename: string; buffer: Buffer; contentType: string }[]
-): Promise<UploadResult[]> {
-  return Promise.all(
-    files.map((file) =>
-      uploadToStorage(userId, projectId, docId, file.filename, file.buffer, file.contentType)
-    )
-  );
-}
-```
-
-### 13.6 `src/services/pdfIndexer/index.ts` (Main Orchestrator)
-
-```typescript
-import { classifyAllPages } from "./classifier";
-import { renderVisualPages } from "./renderer";
-import { summarizeAllPages } from "./summarizer";
-import { uploadMultipleFiles } from "./uploader";
-import { createClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
-
-const supabase = createClient(
-  env.NEXT_PUBLIC_SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-export interface IndexPdfInput {
-  pdfBuffer: Buffer;
-  userId: string;
-  projectId: string;
-  originalFilename: string;
-}
-
-export interface IndexPdfResult {
-  docId: string;
-  indexUrl: string;
-  pageUrls: string[];
-  summaries: string[];
-  totalPages: number;
-}
-
-export async function indexPdf(input: IndexPdfInput): Promise<IndexPdfResult> {
-  const { pdfBuffer, userId, projectId, originalFilename } = input;
-  const docId = `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-  console.log(`[PDF Indexer] Starting indexing for ${docId}`);
-
-  // Step 1: Classify all pages
-  const classifications = await classifyAllPages(pdfBuffer);
-
-  // Step 2: Extract text from text pages
-  const textPages: { pageNumber: number; textContent: string }[] = [];
-  for (const classification of classifications) {
-    if (classification.type === "text") {
-      const pdfjs = await import("pdfjs-dist");
-      const loadingTask = pdfjs.getDocument({ data: pdfBuffer });
-      const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(classification.pageNumber);
-      const textContent = await page.getTextContent();
-      const text = textContent.items.map((item: any) => item.str).join(" ");
-      textPages.push({ pageNumber: classification.pageNumber, textContent: text });
-    }
-  }
-
-  // Step 3: Render visual pages to PNG
-  const visualPageNumbers = classifications
-    .filter((c) => c.type === "visual")
-    .map((c) => c.pageNumber);
-  const renderedPages = await renderVisualPages(pdfBuffer, visualPageNumbers);
-
-  // Step 4: Summarize all pages
-  const visualPageUrls = renderedPages.map((page) => ({
-    pageNumber: page.pageNumber,
-    pageUrl: "",
-  }));
-  const summaries = await summarizeAllPages(textPages, visualPageUrls);
-
-  // Step 5: Upload files to Supabase Storage
-  const filesToUpload = renderedPages.map((page) => ({
-    filename: `page-${String(page.pageNumber).padStart(3, "0")}.png`,
-    buffer: page.pngBuffer,
-    contentType: "image/png",
-  }));
-  const uploadResults = await uploadMultipleFiles(userId, projectId, docId, filesToUpload);
-
-  // Build page URLs map
-  const pageUrlMap = new Map<number, string>();
-  uploadResults.forEach((result, index) => {
-    const pageNumber = renderedPages[index].pageNumber;
-    pageUrlMap.set(pageNumber, result.url);
-  });
-
-  // Update summaries with actual URLs
-  const finalSummaries = summaries.map((summary) => {
-    if (summary.type === "visual") {
-      const url = pageUrlMap.get(summary.pageNumber);
-      return { ...summary, summary: `Visual design page (full image at ${url})` };
-    }
-    return summary;
-  });
-
-  // Step 6: Generate index.md
-  const indexMd = generateIndexMd(finalSummaries, pageUrlMap);
-  const indexBuffer = Buffer.from(indexMd, "utf-8");
-  const indexUpload = await uploadMultipleFiles(userId, projectId, docId, [
-    { filename: "index.md", buffer: indexBuffer, contentType: "text/markdown" },
-  ]);
-  const indexUrl = indexUpload[0].url;
-
-  // Step 7: Save metadata to database
-  const { error: dbError } = await supabase.from("pdf_documents").insert({
-    project_id: projectId,
-    user_id: userId,
-    doc_id: docId,
-    original_filename: originalFilename,
-    total_pages: classifications.length,
-    file_size_bytes: pdfBuffer.length,
-    index_url: indexUrl,
-    page_urls: Array.from(pageUrlMap.values()),
-    summaries: finalSummaries.map((s) => s.summary),
-    status: "ready",
-  });
-
-  if (dbError) throw new Error(`Failed to save PDF metadata: ${dbError.message}`);
-
-  return {
-    docId,
-    indexUrl,
-    pageUrls: Array.from(pageUrlMap.values()),
-    summaries: finalSummaries.map((s) => s.summary),
-    totalPages: classifications.length,
-  };
-}
-
-function generateIndexMd(
-  summaries: { pageNumber: number; type: string; summary: string }[],
-  pageUrlMap: Map<number, string>
-): string {
-  let md = `# PDF Design Document Index\n\n**Total Pages:** ${summaries.length}\n\n## Page Summaries\n\n`;
-  for (const summary of summaries) {
-    md += `### Page ${summary.pageNumber} — ${summary.type === "text" ? "Text" : "Visual"}\n`;
-    md += `- **Summary:** ${summary.summary}\n`;
-    if (summary.type === "visual") {
-      const url = pageUrlMap.get(summary.pageNumber);
-      md += `- **Full page:** ${url}\n`;
-    }
-    md += `\n`;
-  }
-  return md;
-}
-```
-
----
-
-## 14. Implementation: PDF Indexer Endpoint
-
-### 14.1 `src/app/api/agent/pdf/index/route.ts`
-
-```typescript
-import { NextRequest, NextResponse } from "next/server";
-import { indexPdf } from "@/services/pdfIndexer";
-import { createClient } from "@/lib/supabase/server";
-
-export const maxDuration = 300;
-
-export async function POST(req: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const { pdf, projectId, originalFilename } = body;
-    if (!pdf || !projectId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    let pdfBuffer: Buffer;
-    if (pdf.startsWith("data:application/pdf;base64,")) {
-      pdfBuffer = Buffer.from(pdf.split(",")[1], "base64");
-    } else if (pdf.startsWith("http://") || pdf.startsWith("https://")) {
-      const response = await fetch(pdf);
-      pdfBuffer = Buffer.from(await response.arrayBuffer());
-    } else {
-      pdfBuffer = Buffer.from(pdf, "base64");
-    }
-
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id, user_id")
-      .eq("id", projectId)
-      .single();
-
-    if (!project || project.user_id !== user.id) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
-
-    const result = await indexPdf({
-      pdfBuffer,
-      userId: user.id,
-      projectId,
-      originalFilename: originalFilename || "document.pdf",
-    });
-
-    return NextResponse.json({
-      success: true,
-      docId: result.docId,
-      indexUrl: result.indexUrl,
-      pageUrls: result.pageUrls,
-      summaries: result.summaries,
-      totalPages: result.totalPages,
-    });
-  } catch (error) {
-    console.error("[API: pdf/index] Error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    );
-  }
-}
-```
-
----
-
-## 15. Implementation: PDF Sub-Agent Tools
-
-### 15.1 `src/features/deepAgent/tools/pdfTools/readPdfIndexTool.ts`
-
-```typescript
-import { tool } from "langchain";
-import { z } from "zod";
-
-export const readPdfIndexTool = tool(
-  async ({ indexUrl }: { indexUrl: string }) => {
-    const response = await fetch(indexUrl);
-    if (!response.ok) return `Error: Failed to fetch PDF index (${response.status})`;
-    return await response.text();
-  },
-  {
-    name: "read_pdf_index",
-    description: `Tool Name: read_pdf_index
-What it does: Fetches the table of contents and per-page summaries for a PDF document.
-When to use: Use FIRST when the user provides a PDF and wants to build UI from it.
-Input Format: JSON object { indexUrl: string } (Supabase Storage URL).
-Output Format: Markdown string with page summaries and full-page image URLs.
-Rules / Constraints:
-  - Always call this BEFORE read_pdf_page or extract_pdf_sections.
-  - Cheap: just an HTTP fetch, no LLM cost.`,
-    schema: z.object({
-      indexUrl: z.string().url().describe("Supabase Storage URL of the PDF index.md"),
-    }),
-  }
-);
-```
-
-### 15.2 `src/features/deepAgent/tools/pdfTools/readPdfPageTool.ts`
-
-```typescript
-import { tool } from "langchain";
-import { z } from "zod";
-import { ChatOpenRouter } from "@langchain/openrouter";
-import { HumanMessage } from "@langchain/core/messages";
-import { env } from "@/lib/env";
-
-export const readPdfPageTool = tool(
-  async ({ pageUrl, pageNumber, instruction }: { pageUrl: string; pageNumber: number; instruction?: string }) => {
-    try {
-      const imageResponse = await fetch(pageUrl);
-      if (!imageResponse.ok) return `Error: Failed to fetch page image (${imageResponse.status})`;
-
-      const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-      const dataUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
-
-      const visionModel = new ChatOpenRouter({
-        apiKey: env.OPENROUTER_API_KEY,
-        model: "google/gemini-2.5-flash",
-        temperature: 0.3,
-      });
-
-      const prompt = instruction || "Describe this UI design page in detail: layout, sections, colors, typography, text overlays, and any reusable components.";
-
-      const response = await visionModel.invoke([
-        new HumanMessage({
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: dataUrl } },
-          ],
-        }),
-      ]);
-
-      return `Page ${pageNumber}: ${response.content.toString()}`;
-    } catch (error) {
-      return `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
-    }
-  },
-  {
-    name: "read_pdf_page",
-    description: `Tool Name: read_pdf_page
-What it does: Fetches a specific PDF page image and returns a detailed text description.
-When to use: Use AFTER read_pdf_index when you need details about a specific page.
-Input Format: JSON object { pageUrl: string, pageNumber: number, instruction?: string }.
-Output Format: Text string describing the page in detail.
-Rules / Constraints:
-  - The image is processed server-side and NEVER enters your context.
-  - Only the text description is returned to you.
-  - More expensive than read_pdf_index (vision LLM cost ~$0.001 per call).`,
-    schema: z.object({
-      pageUrl: z.string().url().describe("Supabase Storage URL of the page PNG"),
-      pageNumber: z.number().describe("1-based page number for reference"),
-      instruction: z.string().optional().describe("Optional specific instruction"),
-    }),
-  }
-);
-```
-
-### 15.3 `src/features/deepAgent/tools/pdfTools/extractPdfSectionsTool.ts`
-
-```typescript
-import { tool } from "langchain";
-import { z } from "zod";
-import { extractAssetsFromImages } from "@/features/deepAgent/tools/assetExtraction/extraction";
-import { env } from "@/lib/env";
-
-export const extractPdfSectionsTool = tool(
-  async ({ pageUrl, sections, userId, projectId }: { pageUrl: string; sections: string[]; userId: string; projectId: string }) => {
-    try {
-      const imageResponse = await fetch(pageUrl);
-      if (!imageResponse.ok) return `Error: Failed to fetch page image (${imageResponse.status})`;
-
-      const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-      const dataUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
-
-      const folder = `${userId}/${projectId}/extracted/pdf-sections`;
-      const result = await extractAssetsFromImages([dataUrl], sections, env.OPENROUTER_API_KEY, folder);
-
-      return JSON.stringify({
-        sections: result.assets.map((a) => ({
-          name: a.label,
-          url: a.url,
-          status: a.status,
-          box2d: a.box2d,
-        })),
-      });
-    } catch (error) {
-      return `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
-    }
-  },
-  {
-    name: "extract_pdf_sections",
-    description: `Tool Name: extract_pdf_sections
-What it does: Crops specific UI sections from a PDF page and uploads them to Supabase Storage.
-When to use: Use AFTER read_pdf_page when you need the actual cropped images.
-Input Format: JSON object { pageUrl: string, sections: string[], userId: string, projectId: string }.
-Output Format: JSON with { sections: [{ name, url, status, box2d }] }.
-Rules / Constraints:
-  - The cropped images are uploaded to Supabase — only URLs return to you.
-  - Reuses the assetExtraction engine.
-  - Requires userId and projectId for proper storage organization.`,
-    schema: z.object({
-      pageUrl: z.string().url().describe("Supabase Storage URL of the page PNG"),
-      sections: z.array(z.string()).describe("Section names to extract"),
-      userId: z.string().describe("User ID for storage path"),
-      projectId: z.string().describe("Project ID for storage path"),
-    }),
-  }
-);
-```
-
-### 15.4 `src/features/deepAgent/tools/pdfTools/index.ts`
-
-```typescript
-import { readPdfIndexTool } from "./readPdfIndexTool";
-import { readPdfPageTool } from "./readPdfPageTool";
-import { extractPdfSectionsTool } from "./extractPdfSectionsTool";
-
-export const pdfTools = {
-  read_pdf_index: readPdfIndexTool,
-  read_pdf_page: readPdfPageTool,
-  extract_pdf_sections: extractPdfSectionsTool,
-};
-
-export { readPdfIndexTool, readPdfPageTool, extractPdfSectionsTool };
-```
-
----
-
-## 16. Integration: Update Main Agent
-
-### 16.1 Update `src/features/deepAgent/tools/index.ts`
-
-```typescript
-import { pdfTools } from "./pdfTools";
-
-export const tools = {
+tools = {
   // ... existing tools ...
-  ...pdfTools,
-};
+  process_pdfs,
+  get_pdf_page_markdown,
+}
 ```
 
-### 16.2 Update `src/features/deepAgent/prompt.ts`
+### 6.2 System Prompt Update
 
-Add this section to the `SYSTEM_PROMPT`:
+Add PDF processing section to the main agent's system prompt:
 
 ```
 ## PDF Processing
 
-When the user uploads a PDF document, you have access to 3 specialized tools:
+When the user provides PDF URLs, you have access to 2 tools:
 
-1. **read_pdf_index** — Fetches the table of contents with per-page summaries.
-   - Use FIRST to understand what's in the PDF.
+1. **process_pdfs** — Processes one or multiple PDF URLs.
+   - Use FIRST when the user provides PDF URLs.
+   - Returns markdown file URLs (one per PDF).
+   - Each markdown file contains per-page summaries with text and image links.
+   - PDF data is saved to user chat history.
 
-2. **read_pdf_page** — Describes a specific page in detail (layout, colors, typography).
-   - Use AFTER read_pdf_index when you need details about a specific page.
-   - Vision LLM runs server-side, only text description returns to you.
-
-3. **extract_pdf_sections** — Crops specific sections (logo, hero, cards) from a page.
-   - Use AFTER read_pdf_page when you need the actual cropped images.
-   - Returns CDN URLs that you can embed in React components.
+2. **get_pdf_page_markdown** — Retrieves the markdown content for a specific page.
+   - Use AFTER process_pdfs when you need detailed information about a specific page.
+   - Returns the markdown section for that page.
 
 **Workflow:**
-1. Call read_pdf_index to see what pages exist
-2. Identify which pages are relevant to the user's request
-3. Call read_pdf_page for those specific pages
-4. Call extract_pdf_sections to get the actual assets
-5. Write React components using the CDN URLs
+1. Call process_pdfs with the PDF URLs, projectId, and chatId
+2. Review the markdown URLs returned
+3. If you need details about a specific page, call get_pdf_page_markdown
+4. If you need to see the actual page image, fetch the image URL from the markdown
+5. Use the information to complete the user's task
 
 **Important:**
-- Never request all pages at once — only the ones you need
-- The PDF context (indexUrl, summaries) is already in your context as an attachment
-- All heavy work (vision LLM, cropping) happens server-side
-- You only see text descriptions and CDN URLs, never raw images
+- The markdown files contain per-page summaries with text and image links
+- You can fetch image URLs directly to view the actual page
+- You can call get_pdf_page_markdown to get detailed markdown for a specific page
+- Decide whether you need the markdown summary or the actual page image based on the task
 ```
 
 ---
 
-## 17. Integration: Update Main Agent Endpoint
+## 7. Dependencies
 
-### 17.1 Update `src/app/api/agent/route.ts`
+**Required packages:**
+- `pdf-lib` — PDF manipulation (splitting, copying pages)
+- `pdfjs-dist` — PDF rendering to images
+- `pdf-parse` — Text extraction from PDFs
+- `@supabase/supabase-js` — Supabase client (already installed)
 
-```typescript
-import { NextRequest } from "next/server";
-import { buildRelieAgent } from "@/features/deepAgent/agent";
-import { runAgentStream } from "@/features/deepAgent/stream";
-import { indexPdf } from "@/services/pdfIndexer";
-import { createClient } from "@/lib/supabase/server";
+**Environment variables:**
+- `OPENROUTER_API_KEY` — For vision LLM (already configured)
+- `SUPABASE_SERVICE_ROLE_KEY` — For server-side storage uploads
 
-export const maxDuration = 300;
+---
 
-export async function POST(req: NextRequest) {
-  try {
-    const formData = await req.formData();
-    const messages = JSON.parse(formData.get("messages") as string);
-    const model = formData.get("model") as string;
-    const reasoning = formData.get("reasoning") as string;
-    const sandboxId = formData.get("sandboxId") as string | null;
-    const chatId = formData.get("chatId") as string | null;
-    const threadId = formData.get("threadId") as string | null;
-    const projectId = formData.get("projectId") as string | null;
+## 8. Complete Workflow Design
 
-    const files = formData.getAll("files") as File[];
-    const pdfFile = files.find((f) => f.type === "application/pdf");
+### 8.1 User Interaction Flow
 
-    let pdfContext: any = null;
+```
+User: "Build me a homepage from these PDFs: 
+       https://example.com/design1.pdf, 
+       https://example.com/design2.pdf"
+```
 
-    if (pdfFile && projectId) {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return new Response("Unauthorized", { status: 401 });
+### 8.2 Main Agent Decision Flow
 
-      const arrayBuffer = await pdfFile.arrayBuffer();
-      const pdfBuffer = Buffer.from(arrayBuffer);
+```
+1. Main agent receives user prompt with PDF URLs
+2. Main agent decides to call process_pdfs
+3. Main agent calls:
+   process_pdfs({
+     pdfUrls: ["url1", "url2"],
+     projectId: "proj_123",
+     chatId: "chat_456"
+   })
+```
 
-      const indexResult = await indexPdf({
-        pdfBuffer,
-        userId: user.id,
-        projectId,
-        originalFilename: pdfFile.name,
-      });
+### 8.3 process_pdfs Internal Flow
 
-      pdfContext = {
-        docId: indexResult.docId,
-        indexUrl: indexResult.indexUrl,
-        pageUrls: indexResult.pageUrls,
-        summaries: indexResult.summaries,
-        totalPages: indexResult.totalPages,
-      };
-    }
+```
+For each PDF URL:
+  1. Fetch PDF binary
+  2. Split into pages
+  3. Classify each page (text vs visual)
+  4. For text pages: extract text programmatically
+  5. For visual pages: convert to image, upload to Supabase
+  6. Build page data array (text + image URLs)
+  7. Spawn internal deep agent with page data
+  8. Internal agent generates markdown summary
+  9. Upload markdown to Supabase
+  10. Save per-page data to pdf_pages table
+  11. Save PDF metadata to pdf_documents table
+  12. Save PDF attachment to chat_messages table
+  13. Return markdown URL
+```
 
-    if (pdfContext) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage && lastMessage.role === "user") {
-        const pdfAttachment = `\n\n📎 **PDF Document (${pdfContext.totalPages} pages)**\n` +
-          `**Index:** ${pdfContext.indexUrl}\n\n` +
-          `**Page Summaries:**\n` +
-          pdfContext.summaries.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n");
+### 8.4 Main Agent Post-Processing Flow
 
-        if (typeof lastMessage.content === "string") {
-          lastMessage.content += pdfAttachment;
-        } else if (Array.isArray(lastMessage.content)) {
-          lastMessage.content.push({ type: "text", text: pdfAttachment });
-        }
-      }
-    }
+```
+1. Main agent receives markdown URLs
+2. Main agent reviews markdown content
+3. Main agent decides:
+   - Option A: Call get_pdf_page_markdown for specific page details
+   - Option B: Fetch image URL directly to view actual page
+   - Option C: Use markdown summary for general understanding
+4. Main agent uses information to complete user's task
+```
 
-    const agent = buildRelieAgent({ model, reasoning });
-    return runAgentStream(agent, messages, req.signal, threadId);
-  } catch (error) {
-    console.error("[API: agent] Error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-  }
-}
+### 8.5 Chat History Persistence
+
+```
+When process_pdfs is called:
+  - PDF metadata saved to pdf_documents with chat_id
+  - PDF attachment saved to chat_messages
+  - User can later retrieve all PDFs from a specific chat
+  - Main agent can retrieve PDF context from chat history
 ```
 
 ---
 
-## 18. Deployment Checklist
+## 9. Chat History Integration Design
 
-### 18.1 Environment Variables
+### 9.1 How PDF Data is Saved
 
-Add to `.env.local`:
+When `process_pdfs` is called, the PDF data is saved in two places:
 
-```bash
-# Existing
-OPENROUTER_API_KEY=...
-DAYTONA_API_KEY=...
-SUPABASE_DATABASE_URL=...
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+1. **`pdf_documents` table** — Stores PDF metadata with `chat_id` linking it to the specific chat/thread
+2. **`chat_messages` table** — Stores an attachment message in the chat history
 
-# New (for PDF sub-agent)
-SUPABASE_SERVICE_ROLE_KEY=...  # Server-side only
-```
+### 9.2 Benefits of Chat History Integration
 
-### 18.2 Supabase Setup
+- Users can see which PDFs were uploaded in which chat
+- The main agent can retrieve PDF context from chat history
+- Proper user isolation via RLS policies
+- Conversation continuity across sessions
 
-1. Run the SQL schema from Section 11.1
-2. Create storage buckets:
-   - `pdfs` (public read, authenticated write)
-   - `assets` (already exists)
-3. RLS policies are included in the schema
+### 9.3 Retrieving PDFs from Chat History
 
-### 18.3 Dependencies
+**Query all PDFs for a specific chat:**
+- Filter `pdf_documents` by `chat_id` and `user_id`
 
-```bash
-bun add pdf-lib pdfjs-dist
-bun add -d @types/pdfjs-dist
-```
+**Query all chat messages including PDF attachments:**
+- Filter `chat_messages` by `chat_id` and `user_id`
+- Order by `created_at` ascending
 
 ---
 
-## 19. Cost & Performance Benchmarks
+## 10. Design Decisions
 
-### 19.1 Cost Breakdown (20-page mixed PDF)
+### 10.1 Why a Single Tool?
 
-| Stage | Operation | Cost | Time |
-|---|---|---|---|
-| **PDF Indexer** | pdf.js slicing + classification | $0 | ~500ms |
-| **PDF Indexer** | PNG rendering (15 visual pages) | $0 | ~1s |
-| **PDF Indexer** | Text-only LLM summaries (5 text pages) | $0.002 | ~2s |
-| **PDF Indexer** | Supabase uploads (16 files) | $0.001 | ~1s |
-| **Main Agent** | read_pdf_index (HTTP fetch) | $0 | ~100ms |
-| **Main Agent** | read_pdf_page (2-3 calls) | $0.003 | ~3s |
-| **Main Agent** | extract_pdf_sections (1-2 calls) | $0.004 | ~4s |
-| **Main Agent** | File uploads to Daytona | $0.008 | ~2s |
-| **TOTAL** | | **~$0.018** | **~13s** |
+- Simpler API for the main agent
+- Atomic operation (all PDFs processed together)
+- Easier to track in chat history
 
-### 19.2 Context Window Usage
+### 10.2 Why an Internal Deep Agent?
 
-| Stage | Tokens in Main Agent Context |
-|---|---|
-| System prompt | 2,000 |
-| User message + PDF attachment | 500 |
-| read_pdf_index result | 500 |
-| read_pdf_page results (2-3 calls) | 600 |
-| extract_pdf_sections results | 100 |
-| **TOTAL** | **~3,700 tokens** |
+- Vision LLM can review both text and images together
+- Generates coherent markdown summary
+- Handles complex page layouts intelligently
 
-**99% of 200K context window stays free for actual coding work.**
+### 10.3 Why Save to Chat History?
 
----
+- Conversation continuity
+- User can reference PDFs later
+- Main agent can retrieve context from history
 
-## 20. Summary
+### 10.4 Why Two Tools (process_pdfs + get_pdf_page_markdown)?
 
-### What This System Does
+- `process_pdfs` — Heavy operation, called once
+- `get_pdf_page_markdown` — Light operation, called on-demand
+- Main agent decides when to fetch specific pages
 
-1. **User uploads PDF** in chat → server detects it
-2. **Indexer runs** (3–5s) → creates index.md + page PNGs in Supabase
-3. **Main agent receives** only URLs + summaries (~2,500 tokens)
-4. **Main agent calls PDF sub-agent tools** as needed:
-   - `read_pdf_index` — fetch table of contents
-   - `read_pdf_page` — describe specific page (vision LLM server-side)
-   - `extract_pdf_sections` — crop sections (vision LLM + sharp + upload)
-5. **Main agent writes React code** using CDN URLs
-6. **User sees live preview** with actual PDF assets
+### 10.5 Why Sequential PDF Processing?
 
-### Key Benefits
-
-- ✅ **~37x cheaper** than the original one-shot design ($0.018 vs $0.66)
-- ✅ **~13x less context bloat** (3,700 tokens vs 50,000+)
-- ✅ **Scalable** to 100+ page PDFs
-- ✅ **User isolation** via RLS + hierarchical storage
-- ✅ **Reusable** — user can ask follow-up questions
-- ✅ **Production-ready** with proper error handling and fallbacks
-
-### Implementation Time
-
-- **Database schema:** 1 day
-- **PDF indexer service:** 2 days
-- **PDF sub-agent tools:** 2 days
-- **Integration:** 1 day
-- **Testing & optimization:** 2 days
-- **Total:** ~8 days
+- Avoids memory overload
+- Easier error handling
+- Predictable resource usage
 
 ---
 
-## 21. Quick Reference: Where to Make Changes
-
-| You want to... | Edit |
-|---|---|
-| Add a new PDF tool | `src/features/deepAgent/tools/pdfTools/<name>.ts` + export from `index.ts` |
-| Change indexer logic | `src/services/pdfIndexer/index.ts` |
-| Change PDF classification rules | `src/services/pdfIndexer/classifier.ts` |
-| Change rendering DPI | `src/services/pdfIndexer/renderer.ts` (scale = DPI / 72) |
-| Change storage path pattern | `src/services/pdfIndexer/uploader.ts` |
-| Add new env var | `src/lib/env.ts` |
-| Change system prompt | `src/features/deepAgent/prompt.ts` |
-| Update database schema | Run SQL in Supabase SQL Editor |
-| Add new test case | `tests/pdfs/<name>.pdf` + `tests/test-pdf-subagent.ts` |
-
----
-
-**This document is complete. Another AI coding agent can read this and implement the entire system without additional context.**
+**This document is complete. Another AI coding agent can read this and implement the entire system based on the architecture and design described above.**
