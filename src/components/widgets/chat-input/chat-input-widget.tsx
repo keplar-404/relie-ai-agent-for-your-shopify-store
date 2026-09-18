@@ -67,7 +67,7 @@ export function ChatInputWidget({
             className={className}
             globalDrop
             multiple
-            accept="image/*,application/pdf"
+            accept="image/*,application/pdf,text/*,.txt,.md,.csv,.json,.html,.css,.js,.ts,.tsx,.jsx,.xml,.yaml,.yml,.log"
           >
             {showAttachments && <PromptInputAttachmentsDisplay />}
             <PromptInputBody>

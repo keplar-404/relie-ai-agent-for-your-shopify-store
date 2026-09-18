@@ -91,6 +91,15 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
     }
 
+    // 1. Wipe project storage files from both pdfs and attachments buckets
+    try {
+      const { deleteProjectStorage } = await import('@/services/attachmentProcessor')
+      await deleteProjectStorage(id)
+    } catch (storageErr) {
+      console.warn(`[PROJECT DELETE] Failed to clean up storage for ${id}:`, storageErr)
+    }
+
+    // 2. Delete project database row
     const { error } = await supabase
       .from('projects')
       .delete()

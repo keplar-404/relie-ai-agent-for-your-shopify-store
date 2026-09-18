@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 import { buildRelieAgent } from "@/features/deepAgent/agent";
 import { runAgentStream } from "@/features/deepAgent/stream";
 import { setActiveSandboxId } from "@/services/codeSandbox/sandboxStore";
+import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
 
@@ -31,11 +32,23 @@ export async function POST(req: Request) {
       console.warn("[AGENT ROUTE] Warning: sandboxId missing from request payload!");
     }
 
-    const agent = buildRelieAgent({ model, reasoning });
-    const activeThreadId = threadId || chatId || undefined;
+    // Extract authenticated user for per-user memory namespacing & observability
+    const supabase = await createClient().catch(() => null);
+    const userId =
+      (await supabase?.auth.getUser().catch(() => ({ data: { user: null } })))
+        ?.data?.user?.id ?? "anonymous";
+
+    const agentContext = {
+      userId,
+      projectId: chatId ?? undefined,
+      sandboxId: sandboxId ?? undefined,
+    };
+
+    const agent = await buildRelieAgent({ model, reasoning });
+    const activeThreadId = threadId ?? chatId ?? undefined;
 
     return createUIMessageStreamResponse({
-      stream: runAgentStream(agent, messages, req.signal, activeThreadId),
+      stream: runAgentStream(agent, messages, req.signal, activeThreadId, agentContext),
     });
 
   } catch (error: any) {

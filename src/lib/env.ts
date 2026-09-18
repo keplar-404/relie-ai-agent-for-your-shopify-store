@@ -10,6 +10,8 @@ const envSchema = z.object({
   SUPABASE_DATABASE_URL: z.string().optional(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  ATTACHMENT_MAX_BYTES: z.coerce.number().default(26214400),
+  ATTACHMENT_MAX_PARALLEL: z.coerce.number().default(4),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),

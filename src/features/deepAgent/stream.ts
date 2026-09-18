@@ -4,13 +4,15 @@ import { toBaseMessages } from "@ai-sdk/langchain";
 import type { UIMessage } from "ai";
 import { env } from "@/lib/env";
 import { PERSONA_PRIMER_MESSAGES } from "./prompt";
+import type { AgentContext } from "./agent";
 
 // Bridges DeepAgent streamEvents (v3) projections -> Vercel AI SDK UI message chunks with AbortSignal cancellation support
 export function runAgentStream(
   agent: DeepAgent,
   messages: UIMessage[],
   signal?: AbortSignal,
-  threadId?: string
+  threadId?: string,
+  context?: AgentContext
 ) {
   return createUIMessageStream({
     execute: async ({ writer }) => {
@@ -53,12 +55,15 @@ export function runAgentStream(
           signal,
           runName: "relie-agent",
           tags: ["relie-agent", "production"],
+          context,
           configurable: {
             thread_id: activeThreadId,
+            userId: context?.userId,
           },
           metadata: {
             messageId,
             threadId: activeThreadId,
+            userId: context?.userId,
             project: env.LANGSMITH_PROJECT,
           },
         });

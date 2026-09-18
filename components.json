@@ -23,6 +23,7 @@
   },
   "registries": {
     "@acme": "https://acme.com/r/{name}.json",
-    "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json"
+    "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json",
+    "@supabase": "https://supabase.com/ui/r/{name}.json"
   }
 }
